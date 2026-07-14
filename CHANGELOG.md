@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fix Auto mode toggle by resolving preset mode values case-insensitively and using a safe non-Auto fallback when disabling Auto.
 - Add `hide_unsupported` card option to fully hide unavailable controls and info sections instead of only disabling them.
 - Add `hide_empty_sensors` card option to hide sensor badges when values are missing, `unknown`, or `unavailable`.
 - Improve same-device entity discovery to better match localized (for example German) Dyson entities for night mode, oscillation controls, and sleep timer helpers.

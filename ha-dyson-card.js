@@ -1256,7 +1256,29 @@ class HaDysonCard extends HTMLElement {
 
   _fanModes(attributes) {
     const modes = attributes.preset_modes || attributes.presetModes || [];
-    return Array.isArray(modes) && modes.length ? modes : ["Manual", "Auto"];
+    return Array.isArray(modes) && modes.length ? modes : ["manual", "auto"];
+  }
+
+  _resolvePresetModeValue(attributes, targetMode, fallbackMode) {
+    const modes = this._fanModes(attributes);
+    const target = String(targetMode || "").toLowerCase();
+    const matched = Array.isArray(modes)
+      ? modes.find((mode) => String(mode).toLowerCase() === target)
+      : null;
+    return matched || fallbackMode;
+  }
+
+  _resolveManualPresetMode(attributes) {
+    const modes = this._fanModes(attributes);
+    if (Array.isArray(modes) && modes.length) {
+      const nonAuto = modes.find((mode) => String(mode).toLowerCase() !== "auto");
+      if (nonAuto) return nonAuto;
+    }
+    const currentMode = attributes.mode || attributes.preset_mode;
+    if (currentMode && String(currentMode).toLowerCase() !== "auto") {
+      return currentMode;
+    }
+    return "manual";
   }
 
   _climateAttributes() {
@@ -1586,9 +1608,12 @@ class HaDysonCard extends HTMLElement {
     this._busy = true;
     this._render();
     try {
+      const presetMode = enabled
+        ? this._resolvePresetModeValue(attributes, "auto", "auto")
+        : this._resolveManualPresetMode(attributes);
       await this._hass.callService("fan", "set_preset_mode", {
         entity_id: this._config.entity,
-        preset_mode: enabled ? "Auto" : "Manual",
+        preset_mode: presetMode,
       });
     } finally {
       this._busy = false;
