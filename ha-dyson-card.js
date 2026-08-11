@@ -942,6 +942,16 @@ class HaDysonCard extends HTMLElement {
     return Array.isArray(modes) && modes.length ? modes : ["Manual", "Auto"];
   }
 
+  _fanModeValue(attributes, requestedMode, fallback) {
+    const modes = attributes.preset_modes || attributes.presetModes || [];
+    const normalized = String(requestedMode || "").toLowerCase();
+    if (Array.isArray(modes)) {
+      const match = modes.find((mode) => String(mode).toLowerCase() === normalized);
+      if (match !== undefined) return match;
+    }
+    return fallback;
+  }
+
   _climateAttributes() {
     return this._stateObj(this._climateEntity())?.attributes || {};
   }
@@ -1270,7 +1280,9 @@ class HaDysonCard extends HTMLElement {
     try {
       await this._hass.callService("fan", "set_preset_mode", {
         entity_id: this._config.entity,
-        preset_mode: enabled ? "Auto" : "Manual",
+        preset_mode: enabled
+          ? this._fanModeValue(attributes, "auto", "auto")
+          : this._fanModeValue(attributes, "manual", "manual"),
       });
     } finally {
       this._busy = false;
