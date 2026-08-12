@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.3 - 2026-08-12
+
 - Add `hide_unsupported` card option to fully hide unavailable controls and info sections instead of only disabling them.
 - Add `hide_empty_sensors` card option to hide sensor badges when values are missing, `unknown`, or `unavailable`.
 - Improve same-device entity discovery to better match localized (for example German) Dyson entities for night mode, oscillation controls, and sleep timer helpers.
