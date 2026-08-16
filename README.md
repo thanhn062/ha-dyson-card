@@ -122,7 +122,7 @@ airflow_control_side: right
 | `entity` | string | required | Dyson `fan.` entity from `hass_dyson`. |
 | `title` | string | empty | Optional card title. Empty titles do not render a header. |
 | `airflow_control_side` | `right` or `left` | `right` | Places the vertical airflow speed control on the right or left side. |
-| `language` | string | auto | Optional UI language override (for example `de` or `en`). If omitted, the card follows the Home Assistant/frontend locale. |
+| `language` | string | auto | Optional UI language override (`en`, `de`, or `fr`). If omitted, the card follows the Home Assistant/frontend locale. |
 | `hide_unsupported` | boolean | `false` | Hides controls and info chips that are unavailable on the selected device instead of showing them as disabled/empty. |
 | `hide_empty_sensors` | boolean | `false` | Hides sensor badges with empty values (`unknown`, `unavailable`, or missing values). |
 | `sensor_more_button_threshold` | number | `4` | Shows the More/Less sensor toggle only when the visible sensor item count is greater than this value. |
