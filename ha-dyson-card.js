@@ -12,8 +12,8 @@ class HaDysonCard extends HTMLElement {
 
   static getConfigForm() {
     const locale = (typeof navigator !== "undefined" ? String(navigator.language || "en") : "en").toLowerCase();
-    const isGerman = locale.startsWith("de");
-    const t = (de, en) => (isGerman ? de : en);
+    const editorLang = locale.startsWith("de") ? "de" : locale.startsWith("fr") ? "fr" : "en";
+    const t = (de, en, fr) => (editorLang === "de" ? de : editorLang === "fr" ? fr ?? en : en);
 
     return {
       schema: [
@@ -44,15 +44,19 @@ class HaDysonCard extends HTMLElement {
               options: [
                 {
                   value: "auto",
-                  label: t("Automatisch", "Auto"),
+                  label: t("Automatisch", "Auto", "Automatique"),
                 },
                 {
                   value: "en",
-                  label: t("Englisch", "English"),
+                  label: t("Englisch", "English", "Anglais"),
                 },
                 {
                   value: "de",
-                  label: t("Deutsch", "German"),
+                  label: t("Deutsch", "German", "Allemand"),
+                },
+                {
+                  value: "fr",
+                  label: t("Französisch", "French", "Français"),
                 },
               ],
             },
@@ -66,11 +70,11 @@ class HaDysonCard extends HTMLElement {
               options: [
                 {
                   value: "right",
-                  label: t("Rechts", "Right"),
+                  label: t("Rechts", "Right", "Droite"),
                 },
                 {
                   value: "left",
-                  label: t("Links", "Left"),
+                  label: t("Links", "Left", "Gauche"),
                 },
               ],
             },
@@ -84,11 +88,11 @@ class HaDysonCard extends HTMLElement {
               options: [
                 {
                   value: "true",
-                  label: t("An", "On"),
+                  label: t("An", "On", "Activé"),
                 },
                 {
                   value: "false",
-                  label: t("Aus", "Off"),
+                  label: t("Aus", "Off", "Désactivé"),
                 },
               ],
             },
@@ -102,11 +106,11 @@ class HaDysonCard extends HTMLElement {
               options: [
                 {
                   value: "true",
-                  label: t("An", "On"),
+                  label: t("An", "On", "Activé"),
                 },
                 {
                   value: "false",
-                  label: t("Aus", "Off"),
+                  label: t("Aus", "Off", "Désactivé"),
                 },
               ],
             },
@@ -126,11 +130,11 @@ class HaDysonCard extends HTMLElement {
               options: [
                 {
                   value: "inline",
-                  label: t("Inline", "Inline"),
+                  label: t("Inline", "Inline", "En ligne"),
                 },
                 {
                   value: "panel",
-                  label: t("Panel", "Panel"),
+                  label: t("Panel", "Panel", "Panneau"),
                 },
               ],
             },
@@ -140,21 +144,25 @@ class HaDysonCard extends HTMLElement {
       computeLabel: (schema) => {
         switch (schema.name) {
           case "entity":
-            return t("Dyson-Entität", "Dyson entity");
+            return t("Dyson-Entität", "Dyson entity", "Entité Dyson");
           case "title":
-            return t("Titel", "Title");
+            return t("Titel", "Title", "Titre");
           case "language":
-            return t("Sprache", "Language");
+            return t("Sprache", "Language", "Langue");
           case "airflow_control_side":
-            return t("Luftstrom-Reglerseite", "Airflow control side");
+            return t("Luftstrom-Reglerseite", "Airflow control side", "Côté du réglage du flux d'air");
           case "hide_unsupported":
-            return t("Nicht unterstützte Steuerelemente ausblenden", "Hide unsupported controls");
+            return t(
+              "Nicht unterstützte Steuerelemente ausblenden",
+              "Hide unsupported controls",
+              "Masquer les commandes non prises en charge"
+            );
           case "hide_empty_sensors":
-            return t("Leere Sensor-Abzeichen ausblenden", "Hide empty sensor badges");
+            return t("Leere Sensor-Abzeichen ausblenden", "Hide empty sensor badges", "Masquer les badges de capteur vides");
           case "sensor_more_button_threshold":
-            return t("Schwellwert für Mehr-Button", "Sensor more button threshold");
+            return t("Schwellwert für Mehr-Button", "Sensor more button threshold", "Seuil du bouton « Plus »");
           case "sensor_detail_layout":
-            return t("Sensor-Detail-Layout", "Sensor detail layout");
+            return t("Sensor-Detail-Layout", "Sensor detail layout", "Disposition du détail des capteurs");
           default:
             return undefined;
         }
@@ -164,32 +172,38 @@ class HaDysonCard extends HTMLElement {
           case "airflow_control_side":
             return t(
               "Platziert den vertikalen Luftstrom-Regler rechts oder links am Richtungsrad.",
-              "Places the vertical airflow speed control on the right or left side of the direction wheel."
+              "Places the vertical airflow speed control on the right or left side of the direction wheel.",
+              "Place le réglage vertical de la vitesse du flux d'air à droite ou à gauche de la molette de direction."
             );
           case "language":
             return t(
               "Optionale Sprachvorgabe. Automatisch folgt der Home Assistant oder Browser-Sprache.",
-              "Optional language override. Auto follows the Home Assistant or browser language."
+              "Optional language override. Auto follows the Home Assistant or browser language.",
+              "Choix de langue facultatif. « Automatique » suit la langue de Home Assistant ou du navigateur."
             );
           case "hide_unsupported":
             return t(
               "Wenn aktiv, werden nicht verfügbare Steuerelemente und Info-Chips komplett ausgeblendet.",
-              "When enabled, controls and info chips are fully hidden if unavailable on the selected device."
+              "When enabled, controls and info chips are fully hidden if unavailable on the selected device.",
+              "Si activé, les commandes et les puces d'information indisponibles sur l'appareil sélectionné sont entièrement masquées."
             );
           case "hide_empty_sensors":
             return t(
               "Wenn aktiv, werden Sensor-Abzeichen ohne Wert ausgeblendet.",
-              "When enabled, sensor badges with no value are hidden (for example unknown, unavailable, or missing values)."
+              "When enabled, sensor badges with no value are hidden (for example unknown, unavailable, or missing values).",
+              "Si activé, les badges de capteur sans valeur sont masqués (par exemple inconnu, indisponible ou valeur absente)."
             );
           case "sensor_more_button_threshold":
             return t(
               "Zeigt den Mehr/Weniger-Button nur, wenn mehr Sensorwerte sichtbar sind als dieser Wert.",
-              "Show the More/Less button only when visible sensor items are greater than this value."
+              "Show the More/Less button only when visible sensor items are greater than this value.",
+              "N'affiche le bouton Plus/Moins que si le nombre de capteurs visibles dépasse cette valeur."
             );
           case "sensor_detail_layout":
             return t(
               "Erzwingt die Position der Detail-Sensoren: inline in der oberen Zeile oder im ausklappbaren Panel.",
-              "Force where detail sensors appear: inline in the top strip, or in the expandable panel."
+              "Force where detail sensors appear: inline in the top strip, or in the expandable panel.",
+              "Impose l'emplacement des capteurs détaillés : en ligne dans le bandeau supérieur, ou dans le panneau dépliant."
             );
           default:
             return undefined;
@@ -1011,6 +1025,16 @@ class HaDysonCard extends HTMLElement {
       more_details: "Mehr",
       hide_debug: "Debug ausblenden",
       air_quality: "Luftqualität",
+      timer_off: "Aus",
+      preset_name: "Preset-Name",
+      preset_name_placeholder: "Name",
+      preset_icon: "Preset-Symbol",
+      sweep_presets: "Schwenk-Presets",
+      toggle_airflow_direction: "Luftstromrichtung umschalten",
+      set_target_temperature: "Zieltemperatur setzen",
+      decrease_target_temperature: "Zieltemperatur verringern",
+      increase_target_temperature: "Zieltemperatur erhöhen",
+      resolving_device: "Diese Karte ermittelt noch das zugehörige Dyson-Gerät und die Begleit-Entitäten der ausgewählten Lüfter-Entität.",
     };
 
     const en = {
@@ -1061,9 +1085,80 @@ class HaDysonCard extends HTMLElement {
       more_details: "More",
       hide_debug: "Hide debug",
       air_quality: "Air Quality",
+      timer_off: "Off",
+      preset_name: "Preset name",
+      preset_name_placeholder: "Name",
+      preset_icon: "Preset icon",
+      sweep_presets: "Sweep presets",
+      toggle_airflow_direction: "Toggle airflow direction",
+      set_target_temperature: "Set target temperature",
+      decrease_target_temperature: "Decrease target temperature",
+      increase_target_temperature: "Increase target temperature",
+      resolving_device: "This card is still resolving the related Dyson device and companion entities from the selected fan entity.",
     };
 
-    const dict = this._localeCode().startsWith("de") ? de : en;
+    const fr = {
+      save: "Enregistrer",
+      auto: "Auto",
+      night: "Nuit",
+      airflow: "Flux d'air",
+      sleep_timer: "Minuterie",
+      custom_sleep_timer: "Minuterie personnalisée",
+      hours: "Heures",
+      set: "Appliquer",
+      cancel: "Annuler",
+      forward: "Avant",
+      reverse: "Arrière",
+      more: "Plus",
+      less: "Moins",
+      show_more_sensors: "Afficher plus de capteurs",
+      hide_sensor_details: "Masquer le détail des capteurs",
+      set_dyson_entity: "Sélectionnez une entité Dyson.",
+      entity_not_found_prefix: "L'entité",
+      entity_not_found_suffix: "est introuvable. Vérifiez que hass_dyson est installé et que l'entité existe.",
+      applying: "Application en cours",
+      waiting_for_device: "En attente de l'appareil",
+      direct: "Direct",
+      wide_sweep: "Balayage large",
+      sweep: "de balayage",
+      delete_direction_preset: "Supprimer le préréglage de direction",
+      remove_prefix: "Supprimer",
+      no_direction_presets_saved: "Aucun préréglage de direction enregistré",
+      set_dyson_direction: "Définir la direction du Dyson",
+      drag_set_direction: "Faites glisser pour définir la direction du Dyson",
+      set_airflow_speed: "Régler la vitesse du flux d'air",
+      turn_dyson_off: "Éteindre le Dyson",
+      turn_dyson_on: "Allumer le Dyson",
+      heat_mode: "Mode chauffage",
+      fan_only_mode: "Mode ventilation seule",
+      save_current_direction_preset: "Enregistrer la direction actuelle comme préréglage",
+      hide_unsupported_controls: "Masquer les commandes non prises en charge",
+      hide_empty_sensor_badges: "Masquer les badges de capteur vides",
+      direction: "direction",
+      delete_confirm: "SUPPRIMER",
+      point_fan: "Orientation du ventilateur",
+      apply_angle: "Application de l'angle",
+      apply_sweep: "Application",
+      right: "Droite",
+      left: "Gauche",
+      less_details: "Moins",
+      more_details: "Plus",
+      hide_debug: "Masquer le debug",
+      air_quality: "Qualité de l'air",
+      timer_off: "Désactivée",
+      preset_name: "Nom du préréglage",
+      preset_name_placeholder: "Nom",
+      preset_icon: "Icône du préréglage",
+      sweep_presets: "Préréglages de balayage",
+      toggle_airflow_direction: "Inverser le sens du flux d'air",
+      set_target_temperature: "Définir la température de consigne",
+      decrease_target_temperature: "Diminuer la température de consigne",
+      increase_target_temperature: "Augmenter la température de consigne",
+      resolving_device: "Cette carte recherche encore l'appareil Dyson associé et ses entités complémentaires à partir de l'entité ventilateur sélectionnée.",
+    };
+
+    const locale = this._localeCode();
+    const dict = locale.startsWith("de") ? de : locale.startsWith("fr") ? fr : en;
     let text = dict[key] ?? en[key] ?? key;
     for (const [name, value] of Object.entries(vars)) {
       text = text.replaceAll(`{${name}}`, String(value));
@@ -1237,7 +1332,7 @@ class HaDysonCard extends HTMLElement {
 
   _timerLabel(attributes) {
     const minutes = Number(attributes.sleep_timer || 0);
-    if (!Number.isFinite(minutes) || minutes <= 0) return "Off";
+    if (!Number.isFinite(minutes) || minutes <= 0) return this._t("timer_off");
     if (minutes % 60 === 0) return `${minutes / 60}h`;
     return `${minutes}m`;
   }
@@ -1408,8 +1503,8 @@ class HaDysonCard extends HTMLElement {
     const draftIcon = iconChoices.includes(this._presetDraftIcon) ? this._presetDraftIcon : "mdi:crosshairs-gps";
     const editor = this._presetEditorOpen ? `
       <div class="preset-editor">
-        <input class="preset-name-input" type="text" placeholder="Name" aria-label="Preset name" value="${this._escapeHtml(this._presetDraftName || "")}" />
-        <div class="preset-icon-picker" role="radiogroup" aria-label="Preset icon">
+        <input class="preset-name-input" type="text" placeholder="${this._escapeHtml(this._t("preset_name_placeholder"))}" aria-label="${this._escapeHtml(this._t("preset_name"))}" value="${this._escapeHtml(this._presetDraftName || "")}" />
+        <div class="preset-icon-picker" role="radiogroup" aria-label="${this._escapeHtml(this._t("preset_icon"))}">
           ${iconChoices.map((icon, index) => `
             <button class="preset-icon-option ${icon === draftIcon ? "active" : ""}" data-preset-icon="${this._escapeHtml(icon)}" type="button" role="radio" aria-checked="${icon === draftIcon ? "true" : "false"}" aria-label="${this._escapeHtml(icon.replace("mdi:", "").replaceAll("-", " "))}">
               <ha-icon icon="${this._escapeHtml(icon)}"></ha-icon>
@@ -1461,7 +1556,7 @@ class HaDysonCard extends HTMLElement {
   }
 
   _renderWidthOption(preset, currentWidth) {
-    const label = preset === 0 ? "Direct" : `${preset}\u00b0`;
+    const label = preset === 0 ? this._t("direct") : `${preset}\u00b0`;
     return `<option value="${preset}" ${currentWidth === preset ? "selected" : ""}>${label}</option>`;
   }
 
@@ -3623,7 +3718,7 @@ class HaDysonCard extends HTMLElement {
             ${showControlGrid ? `
               <div class="control-grid">
                 ${showSaveControl ? `
-                  <button class="control-pill direction-preset-add-control" data-preset-add aria-label="Save current direction preset" ${controlReady ? "" : "disabled"}>
+                  <button class="control-pill direction-preset-add-control" data-preset-add aria-label="${this._escapeHtml(this._t("save_current_direction_preset"))}" ${controlReady ? "" : "disabled"}>
                     <ha-icon icon="mdi:camera-plus-outline"></ha-icon>
                     <span>${this._t("save")}</span>
                   </button>
@@ -3640,7 +3735,7 @@ class HaDysonCard extends HTMLElement {
                     <div class="row-label">
                       <span>${this._t("airflow")}</span>
                     </div>
-                    <button class="direction-chip active" data-direction-toggle aria-label="Toggle airflow direction" ${airflowDirectionAvailable ? "" : "disabled"}>
+                    <button class="direction-chip active" data-direction-toggle aria-label="${this._escapeHtml(this._t("toggle_airflow_direction"))}" ${airflowDirectionAvailable ? "" : "disabled"}>
                       <ha-icon icon="${airflowDirection === "forward" ? "mdi:arrow-up-bold" : "mdi:arrow-down-bold"}"></ha-icon>
                       <span>${airflowDirection === "forward" ? this._t("forward") : this._t("reverse")}</span>
                     </button>
@@ -3714,7 +3809,7 @@ class HaDysonCard extends HTMLElement {
                 ${this._renderDirectionPresetMarkers()}
                 <button class="wheel-handle-hit" aria-label="${this._t("drag_set_direction")}"></button>
                 <div class="wheel-center-info">
-                  <div class="sweep-dial sweep-dial-active-${bounds.width}" aria-label="Sweep presets">
+                  <div class="sweep-dial sweep-dial-active-${bounds.width}" aria-label="${this._escapeHtml(this._t("sweep_presets"))}">
                     ${(hideUnsupported && !controlReady) ? "" : presetWidths.map((preset) => this._renderSweepButton(preset, bounds.width, !controlReady)).join("")}
                   </div>
                 </div>
@@ -3749,12 +3844,12 @@ class HaDysonCard extends HTMLElement {
                 ` : ""}
                 ${(!hideUnsupported || targetTempAvailable) ? `
                   <div class="target-temp-wrap">
-                    <button class="temp-step-button" data-temp-step="-1" aria-label="Decrease target temperature" ${targetTempAvailable ? "" : "disabled"}>-</button>
+                    <button class="temp-step-button" data-temp-step="-1" aria-label="${this._escapeHtml(this._t("decrease_target_temperature"))}" ${targetTempAvailable ? "" : "disabled"}>-</button>
                     <div class="temp-value-wrap">
-                      <input class="target-temp-input" type="number" min="${Number.isFinite(minTemp) ? minTemp : 1}" max="${Number.isFinite(maxTemp) ? maxTemp : 37}" step="${Number.isFinite(targetTempStep) ? targetTempStep : 1}" value="${targetTemperature ?? ""}" aria-label="Set target temperature" ${targetTempAvailable ? "" : "disabled"} />
+                      <input class="target-temp-input" type="number" min="${Number.isFinite(minTemp) ? minTemp : 1}" max="${Number.isFinite(maxTemp) ? maxTemp : 37}" step="${Number.isFinite(targetTempStep) ? targetTempStep : 1}" value="${targetTemperature ?? ""}" aria-label="${this._escapeHtml(this._t("set_target_temperature"))}" ${targetTempAvailable ? "" : "disabled"} />
                       <span class="target-temp-unit">${this._escapeHtml(tempUnit)}</span>
                     </div>
-                    <button class="temp-step-button" data-temp-step="1" aria-label="Increase target temperature" ${targetTempAvailable ? "" : "disabled"}>+</button>
+                    <button class="temp-step-button" data-temp-step="1" aria-label="${this._escapeHtml(this._t("increase_target_temperature"))}" ${targetTempAvailable ? "" : "disabled"}>+</button>
                   </div>
                 ` : ""}
               </div>
@@ -3764,7 +3859,7 @@ class HaDysonCard extends HTMLElement {
 
           ${showDirectionPresets ? this._renderDirectionPresets(direction, width, controlReady) : ""}
 
-          ${controlReady ? "" : `<div class="helper">This card is still resolving the related Dyson device and companion entities from the selected fan entity.</div>`}
+          ${controlReady ? "" : `<div class="helper">${this._escapeHtml(this._t("resolving_device"))}</div>`}
         </div>
       </ha-card>
     `;
