@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.4 - 2026-08-30
+
 - Add a full French (`fr`) translation of the card UI and of the visual editor, selectable via the `language` option or picked up automatically from the Home Assistant/browser locale.
 - Route the remaining hardcoded English strings through the translation layer: sleep timer `Off` label, direction preset name/icon inputs, airflow direction toggle, sweep preset dial, target temperature controls, and the device-resolving helper text.
 
