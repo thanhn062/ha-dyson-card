@@ -1,0 +1,29 @@
+{
+  "integration_version": "0.38.0",
+  "files": {
+    "const.py": {
+      "before": "074013d4bbdebb7532423c9cf337cc00e69727ff7c9ba7d6e1ffb5719844edbd",
+      "after": "e361962147fc66aa630fc85548e881cd2c390ae88ada681fd80786211a624a4b"
+    },
+    "direction_presets.py": {
+      "before": null,
+      "after": "977c8706e2a3591824ab2ecb2e86697a794b6a401491f526fb18662ca6960556"
+    },
+    "select.py": {
+      "before": "4ab70435fa983b1efc2147fb26e6fe8120ba70127128bffc5334dcb72fc1b1da",
+      "after": "f534957fa96ae4fb46d022f997224717b6d58ec4b2c1b00793dd5899201cfb45"
+    },
+    "services.py": {
+      "before": "90f6a293c5d0fff168f03d1c6f3ac4b5d333590db44400254e57f40fe416a782",
+      "after": "d3495e15be6380ee85eedf0f251067a57bf958384136b3e0a06eb55f7e119406"
+    },
+    "services.yaml": {
+      "before": "5fc47453e484b3a3c7c5d1fb39eae16dff3adc5be30c74d78320103f775c9756",
+      "after": "8fb3d7bba4e11639862147a3a8860519cb733be6e7a7bb31cd830c2a7d260131"
+    },
+    "device.py": {
+      "before": "5f7cd59f764f5638dad06f0e2ed65f130416131222ddc17d5a4591c106891efa",
+      "after": "e3d50940f97b0cd2796c19acba612d2870b4242373e02220edfba3b13eb435e3"
+    }
+  }
+}

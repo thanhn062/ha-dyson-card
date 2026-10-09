@@ -1,0 +1,2 @@
+# Unified patches contain single-space context lines and trailing hunk newlines.
+companion/*.patch whitespace=-blank-at-eol,-blank-at-eof
