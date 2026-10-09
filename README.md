@@ -77,6 +77,8 @@ Each preset chip displays its saved angle. When supported by the installed Dyson
 
 ### Direction Preset Automations
 
+Upstream `hass_dyson` 0.38.0 does not include these native preset actions. Install the [native direction-preset companion](companion/README.md) to enable them. Updating or re-downloading the Dyson integration can replace the companion code; see its compatibility instructions if the preset entity or action disappears.
+
 Search for **Set Direction Preset** in Home Assistant's action picker, select the Dyson device, and choose the saved name from the **Preset** dropdown. The action changes the center direction while preserving the current sweep width and whether oscillation is on or off.
 
 ```yaml

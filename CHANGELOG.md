@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Added
+
+- A native direction-preset companion for `hass_dyson` 0.38.0, providing saved-center buttons, a preset select entity, and the **Set Direction Preset** automation action.
+- A companion installer with a compatibility check, file validation, and backups.
+
+### Fixed
+
+- Provided the missing backend extension required for native saved-angle recalls and the preset action advertised by v0.2.0.
+
+### Compatibility
+
+- The companion is installed separately from the HACS frontend and supports upstream `hass_dyson` 0.38.0. Integration updates or re-downloads can replace it; the installer rejects unverified versions.
+
 ## 0.2.0 - 2026-10-07
 
 ### Added

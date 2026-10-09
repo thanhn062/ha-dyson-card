@@ -29,3 +29,15 @@ jobs:
         run: node --check ha-dyson-card.js
       - name: Run regression tests
         run: node tests/regressions.mjs
+
+  validate-companion:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Fetch supported upstream integration
+        run: curl -fLsS https://github.com/cmgrayb/hass-dyson/releases/download/v0.38.0/hass_dyson.zip -o /tmp/hass_dyson.zip
+      - name: Verify installation and preset behavior
+        run: python companion/test_installer.py /tmp/hass_dyson.zip
