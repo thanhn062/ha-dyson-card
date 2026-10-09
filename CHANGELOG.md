@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.2.1 - 2026-10-09
+
 ### Added
 
 - A native direction-preset companion for `hass_dyson` 0.38.0, providing saved-center buttons, a preset select entity, and the **Set Direction Preset** automation action.
