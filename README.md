@@ -73,30 +73,14 @@ Each preset stores:
 - MDI icon
 - center direction
 
-Each preset chip displays its saved angle. When supported by the installed Dyson integration, presets are exposed through a native `select.*_direction_preset` entity so the same names are available to dashboards, scripts, NFC automations, voice routines, and Stream Deck buttons. Existing card presets migrate automatically when the native entity becomes available. Otherwise, the card continues using its previous Home Assistant user-storage fallback.
+Each preset chip displays its saved angle. Tapping it uses the existing Dyson angle controls, preserving the configured sweep width and oscillation state. The fan must be on to recall a saved direction.
 
-### Direction Preset Automations
-
-Install the independent [Dyson Direction Presets helper](custom_components/dyson_direction/README.md) to enable native automation presets. It stores saved angles separately and leaves upstream `hass_dyson` files untouched, so Dyson integration updates do not remove our preset code or saved data. It is installed separately from the HACS frontend.
-
-Search for **Set Direction Preset** in Home Assistant's action picker, select the Dyson device, and choose the saved name from the **Preset** dropdown. The action changes the center direction while preserving the current sweep width and whether oscillation is on or off.
-
-```yaml
-action: dyson_direction.set_preset
-data:
-  device_id: YOUR_DYSON_DEVICE_ID
-  preset: Bed
-```
-
-![Selecting a Dyson direction preset in a Home Assistant automation](.github/images/direction-preset-automation.jpg)
-
-Home Assistant action fields cannot make one field's options depend dynamically on a separately selected device. On systems with multiple Dyson devices, the custom action therefore shows the combined preset names from all loaded Dysons and validates the chosen name against the selected device when it runs. To guarantee a device-specific dropdown in that situation, use Home Assistant's generic **Select option** action and target that device's `select.*_direction_preset` entity.
+Presets are saved in Home Assistant's per-user frontend storage and synchronized across that user's cards and browsers, with a local cache for temporary connection failures. You create your own preset names, icons, and angles in the card. No additional integration or helper is required.
 
 ## Requirements
 
 - Home Assistant 2024.8.0 or newer
 - [`hass_dyson`](https://github.com/cmgrayb/hass-dyson) installed and configured
-- Optional native preset automation requires the independent Dyson Direction Presets helper and Home Assistant 2026.10.0 or newer
 - A Dyson `fan.` entity from `hass_dyson`
 - Related Dyson entities attached to the same Home Assistant device for the best experience
 
@@ -168,7 +152,7 @@ sensor_detail_layout: inline
 | Sleep timer | `hass_dyson.set_sleep_timer` |
 | Direction wheel | `hass_dyson.set_oscillation_angles` or oscillation number entities |
 | Sweep dial | oscillation select entity or angle services |
-| Saved direction preset | `dyson_direction.set_preset` or `select.select_option` |
+| Saved direction preset | Existing `hass_dyson.set_oscillation_angles` and `fan.oscillate` actions |
 | Heat / Fan only | `climate.set_hvac_mode` |
 | Target temperature | `climate.set_temperature` |
 
