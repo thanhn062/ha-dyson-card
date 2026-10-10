@@ -1,0 +1,30 @@
+set_preset:
+  name: Set Direction Preset
+  description: Recall a saved center angle while preserving sweep width and oscillation state.
+  fields:
+    device_id:
+      name: Dyson Device
+      required: true
+      selector:
+        device:
+          integration: hass_dyson
+    preset:
+      name: Preset
+      required: true
+      selector:
+        text:
+set_presets:
+  name: Manage Saved Presets (advanced)
+  description: Replace the complete saved-direction list for one Dyson fan.
+  fields:
+    device_id:
+      name: Dyson Device
+      required: true
+      selector:
+        device:
+          integration: hass_dyson
+    presets:
+      name: Presets
+      required: true
+      selector:
+        object:

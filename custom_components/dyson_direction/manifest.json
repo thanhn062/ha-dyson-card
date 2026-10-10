@@ -1,0 +1,13 @@
+{
+  "domain": "dyson_direction",
+  "name": "Dyson Direction Presets",
+  "version": "0.3.0",
+  "codeowners": ["@thanhn062"],
+  "config_flow": true,
+  "dependencies": ["hass_dyson"],
+  "documentation": "https://github.com/thanhn062/ha-dyson-card/tree/main/custom_components/dyson_direction",
+  "issue_tracker": "https://github.com/thanhn062/ha-dyson-card/issues",
+  "integration_type": "helper",
+  "iot_class": "local_push",
+  "requirements": []
+}
