@@ -34,7 +34,7 @@ const context = {
       return registry.get(name);
     },
   },
-  window: { localStorage },
+  window: { localStorage, setTimeout, clearTimeout },
   navigator: { language: "fr-FR" },
 };
 
@@ -44,27 +44,6 @@ vm.runInContext(source, context, { filename: "ha-dyson-card.js" });
 const Card = context.customElements.get("ha-dyson-card");
 assert.equal(typeof Card, "function", "card custom element should be registered");
 
-const independent = new Card();
-independent.setConfig({ entity: "fan.dyson" });
-independent._derived = { deviceId: "device-1", directionPresetEntity: "select.old_direction_preset" };
-independent._hass = {
-  states: {
-    "select.other_direction_preset": { state: "Desk", attributes: { preset_domain: "dyson_direction", fan_entity_id: "fan.other" } },
-    "select.new_direction_preset": { state: "Bed", attributes: { preset_domain: "dyson_direction", fan_entity_id: "fan.dyson", presets: [{ id: "bed", name: "Bed", direction: 165 }] } },
-    "select.old_direction_preset": { state: "unavailable", attributes: {} },
-  },
-  async callService(domain, service, data) { independentCalls.push({ domain, service, data }); },
-};
-const independentCalls = [];
-assert.equal(independent._directionPresetEntity(), "select.new_direction_preset", "independent integration wins over unavailable legacy and other devices");
-assert.equal(independent._directionPresetServiceDomain(), "dyson_direction");
-await independent._saveDirectionPresets([{ id: "desk", name: "Desk", direction: 140 }]);
-assert.equal(independentCalls[0].domain, "dyson_direction");
-assert.equal(independentCalls[0].service, "set_presets");
-assert.equal(independentCalls[0].data.device_id, "device-1");
-delete independent._hass.states["select.new_direction_preset"];
-assert.equal(independent._directionPresetServiceDomain(), "hass_dyson", "legacy integration is still compatible");
-
 const card = new Card();
 card._config = { entity: "fan.purificateur_dyson" };
 card.setConfig({ entity: "fan.purificateur_dyson" });
@@ -72,53 +51,6 @@ assert.equal(card._config.airflow_control_side, "inline");
 assert.equal(card._config.sensor_detail_layout, "inline");
 card.setConfig({ entity: "fan.purificateur_dyson", airflow_control_side: "left" });
 assert.equal(card._config.airflow_control_side, "left");
-
-const presetCommitCard = new Card();
-const presetCalls = [];
-presetCommitCard._config = { entity: "fan.purificateur_dyson" };
-presetCommitCard._derived = {
-  deviceId: "dyson-device-1",
-  oscillationCenterEntity: "number.purificateur_dyson_angle_centre",
-};
-presetCommitCard._hass = {
-  states: {
-    "fan.purificateur_dyson": {
-      state: "on",
-      attributes: { oscillating: false },
-    },
-  },
-  async callService(domain, service, data) {
-    presetCalls.push({ domain, service, data });
-  },
-};
-presetCommitCard._render = () => {};
-presetCommitCard._currentDirection = () => 100;
-presetCommitCard._currentWidth = () => 45;
-presetCommitCard._setPendingDirection = () => {};
-presetCommitCard._settleDirectionCommand = () => {};
-await presetCommitCard._commitDirection(200, 45, { preserveOscillation: true });
-assert.deepEqual(
-  JSON.parse(JSON.stringify(presetCalls)),
-  [
-    {
-      domain: "number",
-      service: "set_value",
-      data: {
-        entity_id: "number.purificateur_dyson_angle_centre",
-        value: 200,
-      },
-    },
-    {
-      domain: "fan",
-      service: "oscillate",
-      data: {
-        entity_id: "fan.purificateur_dyson",
-        oscillating: false,
-      },
-    },
-  ],
-  "applying a named direction should restore the previous oscillation state",
-);
 
 const registryData = {
   devices: [{ id: "dyson-device-1", name: "Purificateur Dyson" }],
@@ -202,9 +134,8 @@ assert.match(source, /\.wheel-handle-hit\s*\{[\s\S]*?width:\s*72px;[\s\S]*?heigh
 assert.match(source, /const fanAvailable = !\["unknown", "unavailable"\]/);
 assert.match(source, /class="unavailable-banner"/);
 assert.doesNotMatch(source, /data-preset-automation|direction-preset-automation|content-copy/);
-assert.match(source, /directionPresetEntity: this\._findEntityByRegistryKeys/);
-assert.match(source, /callService\("select", "select_option", \{[\s\S]*?entity_id: directionPresetEntity,[\s\S]*?option: preset\.name/);
-assert.match(source, /domain === "dyson_direction" \? "set_presets" : "set_direction_presets"/);
+assert.doesNotMatch(source, /directionPresetEntity: this\._findEntityByRegistryKeys/);
+assert.doesNotMatch(source, /"dyson_direction"|set_direction_presets|_backendDirectionPresets/);
 assert.match(source, /class="wheel-direction-value"/);
 assert.match(source, /directionValue\.textContent = `\$\{bounds\.center\}\\u00b0`/);
 assert.match(source, /\.wheel-preset-marker\s*\{[\s\S]*?color:\s*white;/);
@@ -369,5 +300,116 @@ fallbackCard._hass = {
 };
 await fallbackCard._ensureDirectionPresets();
 assert.equal(fallbackCard._directionPresets()[0].name, "Door", "local presets should remain usable after a HA storage failure");
+
+function movementCard({ lower = 100, upper = 100, oscillating = false, power = "on" } = {}) {
+  const card = new Card();
+  card._config = { entity: "fan.test" };
+  card._derived = { deviceId: "test-device", directionPresetEntity: "select.stale_preset", oscillationCenterEntity: "number.test_center" };
+  const fan = { state: power, attributes: { angle_low: lower, angle_high: upper, oscillation_enabled: oscillating, oscillating } };
+  const calls = [];
+  const delays = [];
+  card._hass = {
+    states: { "fan.test": fan, "select.stale_preset": { state: "unavailable", attributes: {} } },
+    async callService(domain, service, data) {
+      calls.push({ domain, service, data });
+      if (domain === "hass_dyson") {
+        fan.attributes.angle_low = data.lower_angle;
+        fan.attributes.angle_high = data.upper_angle;
+        fan.attributes.oscillation_enabled = true;
+        fan.attributes.oscillating = true;
+      } else if (domain === "fan") {
+        fan.attributes.oscillation_enabled = data.oscillating;
+        fan.attributes.oscillating = data.oscillating;
+      } else throw new Error("Unexpected custom preset action");
+    },
+  };
+  card._render = () => {};
+  card._setPendingDirection = () => {};
+  card._settleDirectionCommand = () => {};
+  card._directionDelay = async (milliseconds) => { delays.push(milliseconds); };
+  return { card, fan, calls, delays };
+}
+
+for (const [span, oscillating] of [[0, false], [90, false], [90, true]]) {
+  const { card, fan, calls, delays } = movementCard({ lower: 100 - span / 2, upper: 100 + span / 2, oscillating });
+  await card._commitDirection(200, span, { preserveOscillation: true });
+  assert.equal(fan.attributes.angle_low, 200 - span / 2);
+  assert.equal(fan.attributes.angle_high, 200 + span / 2);
+  assert.equal(fan.attributes.oscillation_enabled, oscillating);
+  assert.equal(fan.state, "on", "preset recall never changes power");
+  assert.equal(card._busy, false);
+  assert.equal(calls[0].domain, "hass_dyson", "use stock angles even when a center number and stale select exist");
+  if (!oscillating) {
+    assert.equal(calls[0].data.lower_angle, 200);
+    assert.equal(calls[0].data.upper_angle, 200);
+    assert.ok(delays.some((ms) => ms >= 1500), "let the stationary fan move before stopping");
+    assert.equal(calls.at(-1).data.oscillating, false);
+  } else assert.equal(calls.length, 1, "an active sweep stays active");
+}
+
+const off = movementCard({ power: "off" });
+await off.card._commitDirection(200, 0, { preserveOscillation: true });
+assert.equal(off.calls.length, 0, "a saved button must not start an off fan");
+
+const autoStop = movementCard();
+const autoStopService = autoStop.card._hass.callService;
+autoStop.card._hass.callService = async (domain, service, data) => {
+  await autoStopService(domain, service, data);
+  if (domain === "hass_dyson" && data.lower_angle === data.upper_angle) {
+    autoStop.fan.attributes.oscillation_enabled = false;
+  }
+};
+await autoStop.card._commitDirection(200, 0, { preserveOscillation: true });
+assert.equal(autoStop.fan.attributes.angle_low, 200, "accept firmware that finishes a point move before reporting ON");
+assert.equal(autoStop.fan.attributes.oscillation_enabled, false);
+
+const failed = movementCard();
+failed.card._waitForDirectionState = async () => { throw new Error("confirmation failed"); };
+await assert.rejects(failed.card._commitDirection(200, 0, { preserveOscillation: true }), /confirmation failed/);
+assert.equal(failed.calls.at(-1).data.oscillating, false, "stop temporary motion after confirmation failure");
+assert.equal(failed.card._busy, false, "failed recalls release controls");
+
+const stale = movementCard();
+let polls = 0;
+stale.fan.attributes.oscillating = true;
+stale.card._directionDelay = async () => {
+  polls += 1;
+  stale.fan.attributes.angle_low = 200;
+  stale.fan.attributes.angle_high = 200;
+  stale.fan.attributes.oscillation_enabled = true;
+};
+await stale.card._waitForDirectionState("fan.test", 200, 200, true);
+assert.equal(polls, 1, "optimistic oscillating alone does not confirm a command");
+
+const timeout = movementCard();
+let clock = 0;
+context.Date = class extends Date { static now() { return clock; } };
+timeout.card._directionDelay = async (ms) => { clock += ms; };
+await assert.rejects(timeout.card._waitForDirectionState("fan.test", 200, 200, true), /did not confirm/);
+assert.equal(clock, 8000, "unconfirmed motion has a bounded timeout");
+context.Date = Date;
+
+const overlap = movementCard();
+let releaseMove;
+overlap.card._directionDelay = () => new Promise((resolve) => { releaseMove = resolve; });
+const moving = overlap.card._commitDirection(200, 0, { preserveOscillation: true });
+while (!releaseMove) await Promise.resolve();
+await overlap.card._commitDirection(250, 0, { preserveOscillation: true });
+assert.equal(overlap.calls.length, 1, "a second click cannot interrupt an in-flight recall");
+releaseMove();
+await moving;
+
+const click = movementCard({ lower: 55, upper: 145 });
+let handler;
+click.card._directionPresets = () => [{ id: "custom", name: "User's choice", direction: 200 }];
+click.card._bindWheel = () => {};
+click.card.shadowRoot = {
+  querySelector: () => null,
+  querySelectorAll: (selector) => selector === "[data-preset-apply]" ? [{ dataset: { presetApply: "custom" }, addEventListener: (_event, callback) => { handler = callback; } }] : [],
+};
+click.card._bindControls({ angle_low: 100, angle_high: 100 }, "On");
+await handler();
+assert.equal(click.fan.attributes.angle_high - click.fan.attributes.angle_low, 90, "button reads current settings, not attributes captured at render");
+assert.equal(click.calls.some((call) => call.domain === "select"), false, "stale preset selects never receive button calls");
 
 console.log("regressions passed");

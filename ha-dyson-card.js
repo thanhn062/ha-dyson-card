@@ -260,7 +260,6 @@ class HaDysonCard extends HTMLElement {
     this._directionPresetSubscriptionGeneration = 0;
     this._directionPresetSyncGeneration = 0;
     this._directionPresetRetryAfter = 0;
-    this._backendPresetMigrationAttempted = false;
     this._sensorDetailsOpen = false;
   }
 
@@ -390,7 +389,6 @@ class HaDysonCard extends HTMLElement {
       nightModeEntity: this._findEntityByRegistryKeys(sameDevice, "switch", ["night_mode"], ["night mode", "night_mode", "nachtmodus", "nacht modus"]),
       climateEntity: this._findFirstEntity(sameDevice, "climate"),
       oscillationSelectEntity: this._findEntityByRegistryKeys(sameDevice, "select", ["oscillation"], ["oscillation", "oszillation"]),
-      directionPresetEntity: this._findEntityByRegistryKeys(sameDevice, "select", ["direction_preset"], ["dyson direction preset", "direction preset"]),
       oscillationLowEntity: this._findEntityByRegistryKeys(sameDevice, "number", ["oscillation_low_angle"], ["oscillation low angle", "oscillation low", "oszillations unterwinkel", "unterwinkel"]),
       oscillationHighEntity: this._findEntityByRegistryKeys(sameDevice, "number", ["oscillation_high_angle"], ["oscillation high angle", "oscillation high", "oszillations oberwinkel", "oberwinkel"]),
       oscillationCenterEntity: this._findEntityByRegistryKeys(sameDevice, "number", ["oscillation_center_angle"], ["oscillation center angle", "oscillation center", "oszillations mittelwinkel", "mittelwinkel"]),
@@ -559,21 +557,6 @@ class HaDysonCard extends HTMLElement {
     return this._derived?.oscillationSelectEntity || "";
   }
 
-  _directionPresetEntity() {
-    const standalone = Object.entries(this._hass?.states || {}).find(([entityId, state]) => (
-      entityId.startsWith("select.")
-      && state.attributes?.preset_domain === "dyson_direction"
-      && state.attributes?.fan_entity_id === this._config.entity
-    ));
-    if (standalone) return standalone[0];
-    return this._derived?.directionPresetEntity || "";
-  }
-
-  _directionPresetServiceDomain() {
-    return this._stateObj(this._directionPresetEntity())?.attributes?.preset_domain === "dyson_direction"
-      ? "dyson_direction" : "hass_dyson";
-  }
-
   _oscillationCenterEntity() {
     return this._derived?.oscillationCenterEntity || "";
   }
@@ -695,12 +678,12 @@ class HaDysonCard extends HTMLElement {
     if (typeof attributes.oscillation_enabled === "boolean") {
       return attributes.oscillation_enabled;
     }
-    if (typeof attributes.oscillating === "boolean") {
-      return attributes.oscillating;
-    }
     const selectAttributes = this._selectAttributes();
     if (typeof selectAttributes.oscillation_enabled === "boolean") {
       return selectAttributes.oscillation_enabled;
+    }
+    if (typeof attributes.oscillating === "boolean") {
+      return attributes.oscillating;
     }
     return null;
   }
@@ -1603,24 +1586,12 @@ class HaDysonCard extends HTMLElement {
 
   _directionPresets() {
     const key = this._presetStorageKey();
-    const backendPresets = this._backendDirectionPresets();
-    if (backendPresets !== null && (backendPresets.length || (this._backendPresetMigrationAttempted && !this._directionPresetCache.length))) {
-      this._setDirectionPresetCache(key, backendPresets, { writeLocal: true });
-      return this._directionPresetCache;
-    }
     if (this._directionPresetCacheKey !== key) {
       this._directionPresetCacheKey = key;
       this._directionPresetCache = this._readLocalDirectionPresets(key);
       void this._ensureDirectionPresets();
     }
     return this._directionPresetCache;
-  }
-
-  _backendDirectionPresets() {
-    const entityId = this._directionPresetEntity();
-    if (!entityId) return null;
-    const presets = this._stateObj(entityId)?.attributes?.presets;
-    return Array.isArray(presets) ? this._normalizeDirectionPresets(presets) : null;
   }
 
   _stopDirectionPresetSubscription() {
@@ -1643,7 +1614,6 @@ class HaDysonCard extends HTMLElement {
     this._directionPresetWriteQueue = Promise.resolve();
     this._directionPresetWriteRevision = 0;
     this._directionPresetRetryAfter = 0;
-    this._backendPresetMigrationAttempted = false;
   }
 
   async _subscribeDirectionPresetUpdates(key, generation) {
@@ -1687,17 +1657,6 @@ class HaDysonCard extends HTMLElement {
       this._directionPresetCacheKey = key;
       this._directionPresetCache = this._readLocalDirectionPresets(key);
     }
-    const backendPresets = this._backendDirectionPresets();
-    if (backendPresets !== null && backendPresets.length) {
-      this._backendPresetMigrationAttempted = true;
-      this._stopDirectionPresetSubscription();
-      this._setDirectionPresetCache(key, backendPresets, { writeLocal: true, render: true });
-      return this._directionPresetCache;
-    }
-    if (backendPresets !== null && this._backendPresetMigrationAttempted && !this._directionPresetCache.length) {
-      this._setDirectionPresetCache(key, backendPresets, { writeLocal: true });
-      return this._directionPresetCache;
-    }
     if (!this._hass?.callWS) return this._directionPresetCache;
     if (this._directionPresetHydrationKey === key && this._directionPresetHydrationPromise) {
       return this._directionPresetHydrationPromise;
@@ -1719,15 +1678,6 @@ class HaDysonCard extends HTMLElement {
         const useLocalValue = !hasServerValue || hasPendingLocalValue;
         const presets = useLocalValue ? localPresets : this._normalizeDirectionPresets(response.value);
         this._setDirectionPresetCache(key, presets, { writeLocal: true, render: true });
-
-        if (backendPresets !== null) {
-          this._backendPresetMigrationAttempted = true;
-          this._stopDirectionPresetSubscription();
-          if (presets.length) {
-            await this._saveDirectionPresets(presets);
-          }
-          return this._directionPresetCache;
-        }
 
         if ((!hasServerValue && localPresets.length) || hasPendingLocalValue) {
           await this._hass.callWS({
@@ -1757,24 +1707,6 @@ class HaDysonCard extends HTMLElement {
     const key = this._presetStorageKey();
     const normalized = this._normalizeDirectionPresets(presets);
     this._setDirectionPresetCache(key, normalized, { writeLocal: true });
-    const directionPresetEntity = this._directionPresetEntity();
-    if (directionPresetEntity && this._deviceId() && this._hass?.callService) {
-      this._backendPresetMigrationAttempted = true;
-      const generation = this._directionPresetSyncGeneration;
-      this._directionPresetWriteQueue = this._directionPresetWriteQueue
-        .catch(() => undefined)
-        .then(async () => {
-          if (generation !== this._directionPresetSyncGeneration || key !== this._presetStorageKey()) return false;
-          const domain = this._directionPresetServiceDomain();
-          await this._hass.callService(domain, domain === "dyson_direction" ? "set_presets" : "set_direction_presets", {
-            device_id: this._deviceId(),
-            presets: normalized,
-          });
-          return true;
-        })
-        .catch(() => false);
-      return this._directionPresetWriteQueue;
-    }
     this._setPendingDirectionPresetSync(key, true);
     if (!this._hass?.callWS) return Promise.resolve(false);
 
@@ -2231,11 +2163,61 @@ class HaDysonCard extends HTMLElement {
     }
   }
 
+  _directionDelay(milliseconds) {
+    return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+  }
+
+  async _waitForDirectionState(entityId, lower, upper, oscillating) {
+    const deadline = Date.now() + 8000;
+    do {
+      const fan = this._stateObj(entityId);
+      if (!fan || fan.state !== "on") throw new Error("Dyson is no longer available or powered on");
+      const bounds = entityId === this._config.entity
+        ? this._currentBounds(fan.attributes || {}) : this._extractBounds(fan.attributes || {});
+      const reportedOscillation = this._oscillationEnabled(fan.attributes || {});
+      if (bounds?.lower === lower && bounds?.upper === upper
+          && (oscillating === null || reportedOscillation === oscillating)) return;
+      await this._directionDelay(100);
+    } while (Date.now() < deadline);
+    throw new Error("Dyson did not confirm the saved direction");
+  }
+
+  async _recallSavedDirection(bounds, oscillating, attributes) {
+    if (typeof oscillating !== "boolean") throw new Error("Dyson oscillation state is unknown");
+    const entityId = this._config.entity;
+    const deviceId = this._deviceId();
+    const service = this._hass.callService.bind(this._hass);
+    const angles = (lower, upper) => service("hass_dyson", "set_oscillation_angles", {
+      device_id: deviceId, lower_angle: lower, upper_angle: upper,
+    });
+    if (oscillating) {
+      await angles(bounds.lower, bounds.upper);
+      await this._waitForDirectionState(entityId, bounds.lower, bounds.upper, true);
+      return;
+    }
+    try {
+      // A zero-width command lets the fan reach the saved angle before stopping.
+      await angles(bounds.center, bounds.center);
+      // Some firmware stops a zero-width move before the next HA update.
+      await this._waitForDirectionState(entityId, bounds.center, bounds.center, null);
+      const travel = Math.abs(bounds.center - this._sourceDirection(attributes));
+      await this._directionDelay(Math.max(1500, Math.min(7000, travel / 30 * 1000 + 800)));
+      if (bounds.width) {
+        await angles(bounds.lower, bounds.upper);
+        await this._waitForDirectionState(entityId, bounds.lower, bounds.upper, true);
+      }
+    } finally {
+      await service("fan", "oscillate", { entity_id: entityId, oscillating: false });
+    }
+    await this._waitForDirectionState(entityId, bounds.lower, bounds.upper, false);
+  }
+
   async _commitDirection(direction, width, { preserveOscillation = false } = {}) {
     const deviceId = this._deviceId();
     if (!this._hass || !deviceId || this._busy) return;
     const attributes = this._stateObj(this._config.entity)?.attributes || {};
     const previousOscillation = preserveOscillation ? this._oscillationEnabled(attributes) : null;
+    if (preserveOscillation && this._stateObj(this._config.entity)?.state !== "on") return;
     const bounds = this._boundsFromCenterWidth(direction, width);
     const { lower, upper, center, width: normalizedWidth } = bounds;
     const directMode = normalizedWidth === 0;
@@ -2253,11 +2235,8 @@ class HaDysonCard extends HTMLElement {
     this._render();
 
     try {
-      if (preserveOscillation && this._oscillationCenterEntity()) {
-        await this._hass.callService("number", "set_value", {
-          entity_id: this._oscillationCenterEntity(),
-          value: center,
-        });
+      if (preserveOscillation && fanOn) {
+        await this._recallSavedDirection(bounds, previousOscillation, attributes);
       } else if (directMode) {
         if (fanOn && !preserveOscillation) {
           await this._hass.callService("fan", "oscillate", {
@@ -2294,7 +2273,7 @@ class HaDysonCard extends HTMLElement {
           });
         }
       }
-      if (preserveOscillation && typeof previousOscillation === "boolean") {
+      if (preserveOscillation && !fanOn && typeof previousOscillation === "boolean") {
         await this._hass.callService("fan", "oscillate", {
           entity_id: this._config.entity,
           oscillating: previousOscillation,
@@ -2619,19 +2598,13 @@ class HaDysonCard extends HTMLElement {
           this._render();
           return;
         }
-        const directionPresetEntity = this._directionPresetEntity();
-        if (directionPresetEntity) {
-          await this._hass.callService("select", "select_option", {
-            entity_id: directionPresetEntity,
-            option: preset.name,
-          });
-        } else {
-          await this._commitDirection(
-            preset.direction,
-            this._currentWidth(attributes),
-            { preserveOscillation: true },
-          );
-        }
+        const liveAttributes = this._stateObj(this._config.entity)?.attributes || {};
+        const configuredWidth = this._widthFromBounds(this._currentBounds(liveAttributes));
+        await this._commitDirection(
+          preset.direction,
+          configuredWidth ?? this._currentWidth(liveAttributes),
+          { preserveOscillation: true },
+        );
       });
     });
 
