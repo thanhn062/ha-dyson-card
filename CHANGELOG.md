@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 - 2026-10-10
 
 ### Added
 
@@ -14,7 +14,7 @@
 ### Improved
 
 - The card automatically prefers the standalone helper and routes saved-preset changes to it.
-- Preset recalls wait for device-reported state and run sequentially for each fan, preserving sweep width and oscillation state.
+- Preset recalls wait for device-reported state and run sequentially for each fan.
 
 ### Compatibility
 
