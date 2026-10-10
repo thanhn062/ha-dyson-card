@@ -1,5 +1,7 @@
 # Native direction-preset companion
 
+This is the legacy 0.2.1 patch. For new installations and upgrades, use the independent [Dyson Direction Presets helper](../custom_components/dyson_direction/README.md), which does not modify upstream integration files. Keep this patch only until your presets and automations have been migrated.
+
 This extension adds native saved-direction support to **hass_dyson 0.38.0**:
 
 - A `select.*_direction_preset` entity with your saved names and center angles.

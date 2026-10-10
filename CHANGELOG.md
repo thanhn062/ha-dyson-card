@@ -1,6 +1,26 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 - 2026-10-10
+
+### Added
+
+- Independent Dyson Direction Presets integration with its own saved-preset storage, native select, and `dyson_direction.set_preset` action.
+- Migration of saved presets from the previous companion or the card.
+
+### Fixed
+
+- Dyson integration updates and re-downloads no longer overwrite our preset implementation or saved data once the standalone helper is installed.
+
+### Improved
+
+- The card automatically prefers the standalone helper and routes saved-preset changes to it.
+- Preset recalls wait for device-reported state and run sequentially for each fan.
+
+### Compatibility
+
+- Install the standalone helper once, separately from the HACS frontend. The helper requires Home Assistant 2026.10.0 or newer and stock Dyson angle controls; tested with `hass_dyson` 0.38.0.
+- Existing preset automations must migrate from `hass_dyson.set_direction_preset` to `dyson_direction.set_preset`, or target the new helper select.
+- Future changes to upstream control interfaces may still require a compatibility update.
 
 ## 0.2.1 - 2026-10-09
 

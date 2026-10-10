@@ -44,6 +44,27 @@ vm.runInContext(source, context, { filename: "ha-dyson-card.js" });
 const Card = context.customElements.get("ha-dyson-card");
 assert.equal(typeof Card, "function", "card custom element should be registered");
 
+const independent = new Card();
+independent.setConfig({ entity: "fan.dyson" });
+independent._derived = { deviceId: "device-1", directionPresetEntity: "select.old_direction_preset" };
+independent._hass = {
+  states: {
+    "select.other_direction_preset": { state: "Desk", attributes: { preset_domain: "dyson_direction", fan_entity_id: "fan.other" } },
+    "select.new_direction_preset": { state: "Bed", attributes: { preset_domain: "dyson_direction", fan_entity_id: "fan.dyson", presets: [{ id: "bed", name: "Bed", direction: 165 }] } },
+    "select.old_direction_preset": { state: "unavailable", attributes: {} },
+  },
+  async callService(domain, service, data) { independentCalls.push({ domain, service, data }); },
+};
+const independentCalls = [];
+assert.equal(independent._directionPresetEntity(), "select.new_direction_preset", "independent integration wins over unavailable legacy and other devices");
+assert.equal(independent._directionPresetServiceDomain(), "dyson_direction");
+await independent._saveDirectionPresets([{ id: "desk", name: "Desk", direction: 140 }]);
+assert.equal(independentCalls[0].domain, "dyson_direction");
+assert.equal(independentCalls[0].service, "set_presets");
+assert.equal(independentCalls[0].data.device_id, "device-1");
+delete independent._hass.states["select.new_direction_preset"];
+assert.equal(independent._directionPresetServiceDomain(), "hass_dyson", "legacy integration is still compatible");
+
 const card = new Card();
 card._config = { entity: "fan.purificateur_dyson" };
 card.setConfig({ entity: "fan.purificateur_dyson" });
@@ -183,7 +204,7 @@ assert.match(source, /class="unavailable-banner"/);
 assert.doesNotMatch(source, /data-preset-automation|direction-preset-automation|content-copy/);
 assert.match(source, /directionPresetEntity: this\._findEntityByRegistryKeys/);
 assert.match(source, /callService\("select", "select_option", \{[\s\S]*?entity_id: directionPresetEntity,[\s\S]*?option: preset\.name/);
-assert.match(source, /callService\("hass_dyson", "set_direction_presets"/);
+assert.match(source, /domain === "dyson_direction" \? "set_presets" : "set_direction_presets"/);
 assert.match(source, /class="wheel-direction-value"/);
 assert.match(source, /directionValue\.textContent = `\$\{bounds\.center\}\\u00b0`/);
 assert.match(source, /\.wheel-preset-marker\s*\{[\s\S]*?color:\s*white;/);

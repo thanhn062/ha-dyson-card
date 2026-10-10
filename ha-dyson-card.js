@@ -560,7 +560,18 @@ class HaDysonCard extends HTMLElement {
   }
 
   _directionPresetEntity() {
+    const standalone = Object.entries(this._hass?.states || {}).find(([entityId, state]) => (
+      entityId.startsWith("select.")
+      && state.attributes?.preset_domain === "dyson_direction"
+      && state.attributes?.fan_entity_id === this._config.entity
+    ));
+    if (standalone) return standalone[0];
     return this._derived?.directionPresetEntity || "";
+  }
+
+  _directionPresetServiceDomain() {
+    return this._stateObj(this._directionPresetEntity())?.attributes?.preset_domain === "dyson_direction"
+      ? "dyson_direction" : "hass_dyson";
   }
 
   _oscillationCenterEntity() {
@@ -1754,7 +1765,8 @@ class HaDysonCard extends HTMLElement {
         .catch(() => undefined)
         .then(async () => {
           if (generation !== this._directionPresetSyncGeneration || key !== this._presetStorageKey()) return false;
-          await this._hass.callService("hass_dyson", "set_direction_presets", {
+          const domain = this._directionPresetServiceDomain();
+          await this._hass.callService(domain, domain === "dyson_direction" ? "set_presets" : "set_direction_presets", {
             device_id: this._deviceId(),
             presets: normalized,
           });

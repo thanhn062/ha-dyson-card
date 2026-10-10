@@ -77,12 +77,12 @@ Each preset chip displays its saved angle. When supported by the installed Dyson
 
 ### Direction Preset Automations
 
-Upstream `hass_dyson` 0.38.0 does not include these native preset actions. Install the [native direction-preset companion](companion/README.md) to enable them. Updating or re-downloading the Dyson integration can replace the companion code; see its compatibility instructions if the preset entity or action disappears.
+Install the independent [Dyson Direction Presets helper](custom_components/dyson_direction/README.md) to enable native automation presets. It stores saved angles separately and leaves upstream `hass_dyson` files untouched, so Dyson integration updates do not remove our preset code or saved data. It is installed separately from the HACS frontend.
 
 Search for **Set Direction Preset** in Home Assistant's action picker, select the Dyson device, and choose the saved name from the **Preset** dropdown. The action changes the center direction while preserving the current sweep width and whether oscillation is on or off.
 
 ```yaml
-action: hass_dyson.set_direction_preset
+action: dyson_direction.set_preset
 data:
   device_id: YOUR_DYSON_DEVICE_ID
   preset: Bed
@@ -96,7 +96,7 @@ Home Assistant action fields cannot make one field's options depend dynamically 
 
 - Home Assistant 2024.8.0 or newer
 - [`hass_dyson`](https://github.com/cmgrayb/hass-dyson) installed and configured
-- Optional native preset automation requires a `hass_dyson` version that exposes a `select.*_direction_preset` entity plus the `hass_dyson.set_direction_preset` and `hass_dyson.set_direction_presets` actions
+- Optional native preset automation requires the independent Dyson Direction Presets helper and Home Assistant 2026.10.0 or newer
 - A Dyson `fan.` entity from `hass_dyson`
 - Related Dyson entities attached to the same Home Assistant device for the best experience
 
@@ -168,7 +168,7 @@ sensor_detail_layout: inline
 | Sleep timer | `hass_dyson.set_sleep_timer` |
 | Direction wheel | `hass_dyson.set_oscillation_angles` or oscillation number entities |
 | Sweep dial | oscillation select entity or angle services |
-| Saved direction preset | `hass_dyson.set_direction_preset` or `select.select_option` |
+| Saved direction preset | `dyson_direction.set_preset` or `select.select_option` |
 | Heat / Fan only | `climate.set_hvac_mode` |
 | Target temperature | `climate.set_temperature` |
 
