@@ -89,7 +89,9 @@ For NFC tags, physical buttons, schedules, and Stream Deck, create a reusable Ho
 
 ## HACS Install
 
-Use the **Open in HACS** button near the top of this page, or install it manually from the default HACS catalog:
+[![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=thanhn062&repository=ha-dyson-card&category=plugin)
+
+Or install it manually from the default HACS catalog:
 
 1. HACS -> `Dashboard`
 2. Search for `HA Dyson Card`
