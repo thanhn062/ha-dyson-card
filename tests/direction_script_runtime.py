@@ -115,6 +115,10 @@ class GeneratedScriptTests(unittest.IsolatedAsyncioTestCase):
         await self.run_script({"preset": "bed-id", "sweep": "45"})
         self.assert_fan(142, 187, True)
 
+    async def test_calls_accept_saved_names_as_well_as_stable_ids(self):
+        await self.run_script({"preset": " bEd ", "sweep": "45"})
+        self.assert_fan(143, 188, True)
+
     async def test_stationary_preserves_width_and_off_state(self):
         self.set_fan(118, 163, False)
         self.auto_stop_point = True

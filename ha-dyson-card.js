@@ -1572,7 +1572,7 @@ class HaDysonCard extends HTMLElement {
       },
       sequence: [
         { variables: { fan_entity: fan, sweep_entity: select || "select.dyson_native_sweep_unavailable", catalog: literal(options), sweep_choice: "{{ sweep | default('preserve') | string }}" } },
-        { variables: { matches: "{{ catalog | selectattr('id', 'eq', preset | default('') | string) | list }}" } },
+        { variables: { matches: "{% set by_id = catalog | selectattr('id', 'eq', preset | default('') | string) | list %}{% set ns = namespace(matches=[]) %}{% for item in catalog %}{% if item.name | lower == preset | default('') | string | trim | lower %}{% set ns.matches = ns.matches + [item] %}{% endif %}{% endfor %}{{ by_id if by_id | length else ns.matches }}" } },
         { if: "{{ matches | length != 1 }}", then: [stop("Choose an existing saved preset. A deleted preset cannot be recalled.")] },
         { if: "{{ sweep is defined and not ((sweep is string and sweep in ['preserve', '0', '45', '90', '180', '350']) or (sweep is integer and sweep is not boolean and sweep in [0, 45, 90, 180, 350])) }}", then: [stop("Unsupported sweep. Choose preserve, 0, 45, 90, 180, or 350.")] },
         { if: "{{ not is_state(fan_entity, 'on') or state_attr(fan_entity, 'angle_low') is not number or state_attr(fan_entity, 'angle_high') is not number or state_attr(fan_entity, 'oscillation_enabled') not in [true, false] }}", then: [stop("Turn the Dyson on and wait for its angle and oscillation readings.")] },
