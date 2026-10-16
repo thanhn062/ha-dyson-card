@@ -177,6 +177,10 @@ The `More` section expands air-quality details when matching sensors exist:
 | VOC | Volatile Organic Compounds from sources like cooking, cleaning products, smoke, or materials. |
 | NO2 | Nitrogen dioxide, commonly associated with combustion sources. |
 
+### Filter life indicator
+
+The filter badge keeps its percentage visible and colors only the filter icon when attention is needed: amber at 20% remaining or less, and red at 0%. Normal and unavailable readings stay neutral. When multiple filters are available, the badge continues to show the lowest remaining percentage.
+
 ## Model Compatibility
 
 The card adapts to the entities exposed by `hass_dyson`; it is not hard-coded to one Dyson model.
@@ -248,7 +252,3 @@ This project was built with Codex, with me serving as project manager and overse
 ## License
 
 Apache-2.0
-
-### Filter life indicator
-
-The filter badge keeps its percentage visible and colors only the filter icon when attention is needed: amber at 20% remaining or less, and red at 0%. Normal and unavailable readings stay neutral. When multiple filters are available, the badge continues to show the lowest remaining percentage.
