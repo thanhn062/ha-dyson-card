@@ -2786,6 +2786,8 @@ class HaDysonCard extends HTMLElement {
     const aqiTone = aqi ? this._qualityTone(this._qualityLabel(aqi)) : "neutral";
     const speedPercent = this._currentSpeed(attributes);
     const filterPercent = this._filterPercent();
+    const filterTone = filterPercent === null ? "neutral"
+      : filterPercent <= 0 ? "due" : filterPercent <= 20 ? "low" : "neutral";
     const timerLabel = this._timerLabel(attributes);
     const activeTimer = Number(attributes.sleep_timer || 0);
     const autoActive = this._isAutoMode(mode, attributes);
@@ -3514,6 +3516,12 @@ class HaDysonCard extends HTMLElement {
           color: var(--primary-text-color);
           box-shadow: var(--dyson-inner-highlight);
           pointer-events: none;
+        }
+        .sensor-filter.low ha-icon {
+          color: var(--warning-color, #ff9800);
+        }
+        .sensor-filter.due ha-icon {
+          color: var(--error-color, #db4437);
         }
         .sensor-detail-chip {
           grid-template-columns: auto;
@@ -4313,7 +4321,7 @@ class HaDysonCard extends HTMLElement {
                 ${showTempBadge ? `<span class="sensor-temp"><ha-icon icon="mdi:thermometer"></ha-icon>${this._escapeHtml(hasTempValue ? temp : "—")}${hasTempValue ? this._escapeHtml(this._unit(this._temperatureEntity(), "\u00b0")) : ""}</span>` : ""}
                 ${showHumidityBadge ? `<span class="sensor-humidity"><ha-icon icon="mdi:water-percent"></ha-icon>${this._escapeHtml(hasHumidityValue ? humidity : "—")}${hasHumidityValue ? this._escapeHtml(this._unit(this._humidityEntity(), "%")) : ""}</span>` : ""}
                 ${showAqiBadge ? `<span class="sensor-aqi ${aqiTone}"><ha-icon icon="mdi:gauge"></ha-icon>${this._escapeHtml(hasAqiValue ? aqi : "—")}</span>` : ""}
-                ${showFilterBadge ? `<span class="sensor-filter"><ha-icon icon="mdi:air-filter"></ha-icon>${filterPercent === null ? "—" : `${filterPercent}%`}</span>` : ""}
+                ${showFilterBadge ? `<span class="sensor-filter ${filterTone}"><ha-icon icon="mdi:air-filter"></ha-icon>${filterPercent === null ? "—" : `${filterPercent}%`}</span>` : ""}
                 ${sensorDetailLayout === "inline" ? this._renderInlineSensorDetails(inlineSensorDetails) : ""}
                 ${showSensorMoreButton ? `
                   <button class="sensor-more-button ${this._sensorDetailsOpen ? "active" : ""}" data-sensor-more aria-label="${this._sensorDetailsOpen ? this._t("hide_sensor_details") : this._t("show_more_sensors")}">

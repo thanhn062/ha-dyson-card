@@ -9,6 +9,7 @@
 
 ### Improvements
 
+- Add subtle filter-icon coloring: amber at 20% life remaining or less, and red at 0%, while keeping the percentage visible.
 - Replace the prolonged “Applying angle” message and spinner with a brief, subtle indicator.
 - Keep controls responsive while angle changes are confirmed in the background.
 - When several angle or sweep changes are made quickly, apply the latest choice without overlapping commands.

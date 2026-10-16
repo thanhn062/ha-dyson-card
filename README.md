@@ -248,3 +248,7 @@ This project was built with Codex, with me serving as project manager and overse
 ## License
 
 Apache-2.0
+
+### Filter life indicator
+
+The filter badge keeps its percentage visible and colors only the filter icon when attention is needed: amber at 20% remaining or less, and red at 0%. Normal and unavailable readings stay neutral. When multiple filters are available, the badge continues to show the lowest remaining percentage.
