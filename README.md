@@ -29,6 +29,20 @@ This is a frontend card only. It does not replace the Dyson integration; it uses
   <img src=".github/images/ha-dyson-card-preview.jpg" alt="HA Dyson Card dashboard preview" width="390">
 </p>
 
+## What's New
+
+### Upcoming: Create script for saved directions
+
+**Planned public feature — not included in v0.3.2.**
+
+Save a position once, then use **Create script** to make your saved directions available to Home Assistant automations, NFC tags, buttons, and Stream Deck. The card stays frontend-only: the generated script uses Home Assistant's built-in script engine and your existing `hass_dyson` controls. No additional integration is required. Choose a sweep, or leave it at **None — preserve current**.
+
+- Sit on the reading couch: a pressure pad triggers the **Reading couch** position with a 45° sweep.
+- Sit on the bed: the bed pressure pad triggers **Bed**, keeping the current sweep.
+- Scan a tag or press a Stream Deck button to recall the same saved positions.
+
+See [Scripts and Automations](#scripts-and-automations) for the action fields, sweep options, and example workflows.
+
 ## Why This Card?
 
 The default Home Assistant entity cards can control a Dyson device, but the experience is scattered across many entities.
@@ -42,7 +56,7 @@ The goal is to make the Dyson feel like a polished Home Assistant appliance cont
 - Fully functional Dyson control surface for the main things you would normally open the Dyson app to do
 - Save preset directions with a name and icon, then tap once to aim the fan back there
 - Mobile-first layout with direction, sweep, airflow, timer, sensor, filter, heat, and mode controls in one card
-- Run repeatable fan settings from scripts, NFC tags, schedules, or Stream Deck buttons ([automation examples](#scripts-and-automations))
+- Upcoming named-preset actions for scripts, NFC tags, pressure pads, and Stream Deck ([preview](#scripts-and-automations))
 
 ## Features
 
@@ -78,7 +92,7 @@ Each preset chip displays its saved angle. Tapping it uses the existing Dyson an
 
 Presets are saved in Home Assistant's per-user frontend storage and synchronized across that user's cards and browsers, with a local cache for temporary connection failures. You create your own preset names, icons, and angles in the card. No additional integration or helper is required.
 
-For NFC tags, physical buttons, schedules, and Stream Deck, create a reusable Home Assistant script using the [Scripts and Automations](#scripts-and-automations) examples below.
+Upcoming named-preset automation support is described in [Scripts and Automations](#scripts-and-automations).
 
 ## Requirements
 
@@ -163,77 +177,61 @@ sensor_detail_layout: inline
 
 ## Scripts and Automations
 
-Use a Home Assistant script to make an aiming position available to automations, NFC tags, physical buttons, voice routines, and Stream Deck. Once configured, these run through Home Assistant even when the dashboard is closed.
+**Development preview — Create script is not included in v0.3.2.**
 
-Card presets and Home Assistant scripts are configured separately. The card saves each user's preset names and angles in frontend storage; those names do not automatically become callable Home Assistant actions. Use the angle shown on a saved chip as a reference when setting up your script.
+The planned workflow uses saved names instead of entering angle ranges in every automation:
 
-### Create a reusable script
+1. Save a direction with a name such as **Reading couch** or **Bed**.
+2. As an administrator, press **Create script** beneath the saved presets. This creates one reusable native script for this fan and HA user; it does not move the fan. Existing presets are imported automatically.
+3. Use **Open script** to find the script, named **Your fan: Set Direction Preset**. Call it directly from an automation's action picker and select **Preset** and **Sweep**. Buttons, NFC automations, and Stream Deck can call the same script.
+4. Set your own trigger in the automation: a pressure pad becoming occupied, an NFC scan, a schedule, or a button press.
 
-In **Settings → Automations & scenes → Scripts**, create a script and open **Edit in YAML**. Paste this example, replacing `fan.my_dyson` and `YOUR_DYSON_DEVICE_ID` with your own device values:
+Once created, the script runs inside Home Assistant with the dashboard closed. Adding or changing presets in the card updates the managed script automatically while an administrator is using it. The dropdown stores stable preset IDs, so existing calls continue to target the same saved position when its name changes. YAML and external callers can also pass the current saved name, such as `preset: Bed` (case-insensitive); name-based calls must be updated after a rename. Deleting a preset makes calls to that preset stop with an error; it does not silently redirect them to another position. Deleting all presets keeps the script present but prevents any recall.
 
-```yaml
-alias: Dyson reading chair
-mode: single
-sequence:
-  - action: fan.turn_on
-    target:
-      entity_id: fan.my_dyson
-  - action: hass_dyson.set_oscillation_angles
-    data:
-      device_id: YOUR_DYSON_DEVICE_ID
-      lower_angle: 90
-      upper_angle: 180
-  - action: fan.oscillate
-    target:
-      entity_id: fan.my_dyson
-    data:
-      oscillating: true
-```
+Each HA user and fan gets a distinct script ID. This separates preset sets; it does not make scripts private from other HA administrators. Non-admin users cannot create or update these scripts. Configuration/API errors leave presets usable in the card and show a script-sync warning. **Update script** retries the update. Do not manually edit managed script steps: the card replaces those steps on the next preset update. User-created scripts with a conflicting ID are left untouched.
 
-This example turns the fan on and selects a **90° sweep centered at 135°**. It explicitly enables oscillation. Adjust the lower and upper angles for your location: their difference is the sweep width, and their midpoint is the center direction. Both angles must be between 0° and 350°, with the lower angle no greater than the upper angle. The script sets its own range and oscillation state each time it runs.
+### Set Direction Preset options
 
-To find the device ID, open **Developer tools → Actions**, select **Dyson: Set oscillation angles**, choose your Dyson device, and switch to YAML to copy the `device_id`. Use the fan entity belonging to that same device.
+| Option | Select | Default |
+| --- | --- | --- |
+| Script action | Your fan's generated **Set Direction Preset** script. | Choose the script for that fan |
+| Preset | One of your saved direction names. | Required |
+| Sweep | Keep the current setting, aim directly, or choose a sweep width. | **None — preserve current** |
 
-Save the script and check its entity ID. The examples below use `script.dyson_reading_chair`; replace it if Home Assistant assigned a different ID. Run it once to check the chosen angle range before connecting a trigger.
-
-### Run it from an automation or button
-
-Use **Scripts: Turn on** and select your script. The same action can be used by a schedule, a physical button automation, or another script:
-
-```yaml
-action: script.turn_on
-target:
-  entity_id: script.dyson_reading_chair
-```
-
-### Scan an NFC tag
-
-Register a tag in **Settings → Tags** using the Home Assistant Companion app. Create an automation with **Tag scanned** as its trigger and **Scripts: Turn on** as its action:
-
-```yaml
-alias: NFC - Dyson reading chair
-triggers:
-  - trigger: tag
-    tag_id: REPLACE_WITH_YOUR_TAG_ID
-actions:
-  - action: script.turn_on
-    target:
-      entity_id: script.dyson_reading_chair
-mode: single
-```
-
-### Use a Stream Deck button
-
-In a Stream Deck plugin that supports Home Assistant action/service calls, configure a button with:
-
-| Setting | Value |
+| Sweep choice | Result |
 | --- | --- |
-| Action / service | `script.turn_on` |
-| Target entity | `script.dyson_reading_chair` |
+| **None — preserve current** | Keep the current sweep width and oscillation on/off state. |
+| **Direct / 0°** | Move to the saved direction, then stop oscillating. |
+| **45°** | Start a 45° sweep around the saved direction. |
+| **90°** | Start a 90° sweep around the saved direction. |
+| **180°** | Start a 180° sweep around the saved direction. |
+| **350°** | Start native 350° mode when the fan supports it; this full range cannot be centered on an arbitrary saved position. |
 
-Plugin field names vary. If the plugin uses service data instead of a separate target field, use `{"entity_id": "script.dyson_reading_chair"}`. The button runs the same script as your NFC tag and automations, so you only need to update the script when you change the desired settings.
+### Example workflows
 
-See Home Assistant's official [script](https://www.home-assistant.io/integrations/script/) and [NFC tag](https://www.home-assistant.io/integrations/tag/) documentation for additional triggers and setup options.
+| When | Preset | Sweep |
+| --- | --- | --- |
+| Reading-couch pressure pad becomes occupied | Reading couch | 45° |
+| Bed pressure pad becomes occupied | Bed | None — preserve current |
+| Bedside NFC tag is scanned | Bed | Direct / 0° |
+| Stream Deck “Work” button is pressed | Desk | 90° |
+
+For pressure pads, require occupancy for a few seconds to avoid repeated calls as someone shifts position. If two seats can be occupied at once, use automation conditions to decide which position takes priority.
+
+The fan must already be on. Add a **Turn on** action before recalling the preset if your automation should also start the fan. Preset recall keeps the current fan speed.
+
+<details>
+<summary>Earlier named-preset picker reference</summary>
+
+This earlier action screenshot illustrates the saved-name picker. The new generated script has its fan built in and provides Preset and Sweep fields; its current options are listed above. This is not a screenshot of the new script generator.
+
+<p align="center">
+  <img src=".github/images/direction-preset-automation.jpg" alt="Set Direction Preset action with a Dyson device and a saved preset dropdown" width="390">
+</p>
+
+</details>
+
+Calls to the same generated script are queued to avoid overlapping movement commands. Separate users' scripts and other fan controls do not share that queue. Add priority conditions if multiple automations may control the same fan.
 
 ## Sensors
 
