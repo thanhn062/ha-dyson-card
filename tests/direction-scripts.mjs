@@ -57,7 +57,7 @@ assert.equal(writes, 2);
 assert.deepEqual(saved.fields.preset.selector.select.options, [{ label: "Reading couch", value: "bed-id" }]);
 await card._syncDirectionScript({ presets: [] });
 assert.deepEqual(saved.fields.preset.selector.select.options, [], "deleting the last preset invalidates old calls without deleting the script");
-card._hass.callWS = async () => ({ value: { presets: renamed } });
+card._hass.callWS = async (request) => request.type === "config/entity_registry/list" ? [] : ({ value: { presets: renamed } });
 await card._syncDirectionScript({ presets });
 assert.equal(saved.fields.preset.selector.select.options[0].label, "Reading couch", "another browser's newer saved data wins over a queued stale snapshot");
 delete card._hass.callWS;
@@ -88,6 +88,23 @@ failure._hass.callApi = async () => { throw { status_code: 503 }; };
 await failure._refreshManagedDirectionScript(presets);
 assert.match(failure._directionScriptSyncError, /out of sync/);
 assert.equal(storage.size, 0, "script sync failure must not alter saved preset storage");
+
+const running = setup();
+const runningId = `script.${running._directionScriptIdentity().key}`;
+const oldConfig = plain(running._buildDirectionScript());
+let runningWrites = 0;
+running._hass.states[runningId] = { state: "on" };
+running._directionDelay = async () => {
+  assert.equal(runningWrites, 0, "a running script must finish before its configuration is replaced");
+  running._hass.states[runningId].state = "off";
+};
+let runningConfig = oldConfig;
+running._hass.callApi = async (method, _path, body) => {
+  if (method === "POST") { runningWrites++; runningConfig = plain(body); }
+  return runningConfig;
+};
+await running._syncDirectionScript({ presets: renamed });
+assert.equal(runningWrites, 1);
 
 const snapshot = setup();
 const fixture = {

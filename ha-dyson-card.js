@@ -1642,6 +1642,20 @@ class HaDysonCard extends HTMLElement {
       this._directionScriptSyncError = "";
       return true;
     }
+    if (existing) {
+      let entityId = `script.${identity.key}`;
+      if (this._hass.callWS) {
+        const entries = await this._hass.callWS({ type: "config/entity_registry/list" });
+        if (Array.isArray(entries)) entityId = entries.find((entry) => entry.platform === "script" && entry.unique_id === identity.key)?.entity_id || entityId;
+      }
+      // Reloading a changed running script can interrupt stationary-move cleanup.
+      // Preset saves stay responsive while this background update waits for idle.
+      for (let attempt = 0; this._stateObj(entityId)?.state === "on"; attempt++) {
+        if (attempt >= 60) throw new Error("The direction script is still running. Retry after it finishes.");
+        await this._directionDelay(250);
+      }
+      if (identity.key !== this._directionScriptIdentity()?.key) return false;
+    }
     await this._hass.callApi("POST", path, config);
     const saved = await this._hass.callApi("GET", path);
     if (canonical(saved) !== canonical(config)) throw new Error("The direction script could not be verified after saving.");
@@ -1892,7 +1906,7 @@ class HaDysonCard extends HTMLElement {
           key,
           value: this._directionPresetPayload(normalized),
         });
-        await this._refreshManagedDirectionScript(normalized);
+        void this._refreshManagedDirectionScript(normalized);
         if (writeRevision === this._directionPresetWriteRevision) {
           this._setPendingDirectionPresetSync(key, false);
         }
