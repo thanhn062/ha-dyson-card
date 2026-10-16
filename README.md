@@ -31,11 +31,11 @@ This is a frontend card only. It does not replace the Dyson integration; it uses
 
 ## What's New
 
-### Upcoming: named direction automations
+### Upcoming: Create script for saved directions
 
 **Planned public feature — not included in v0.3.2.**
 
-Save a position once, then recall it by name from a Home Assistant automation, script, NFC tag, or button. Choose an optional sweep, or leave it at **None — preserve current**.
+Save a position once, then use **Create script** to make your saved directions available to Home Assistant automations, NFC tags, buttons, and Stream Deck. The card stays frontend-only: the generated script uses Home Assistant's built-in script engine and your existing `hass_dyson` controls. No additional integration is required. Choose a sweep, or leave it at **None — preserve current**.
 
 - Sit on the reading couch: a pressure pad triggers the **Reading couch** position with a 45° sweep.
 - Sit on the bed: the bed pressure pad triggers **Bed**, keeping the current sweep.
@@ -177,21 +177,24 @@ sensor_detail_layout: inline
 
 ## Scripts and Automations
 
-**Upcoming public feature — the named action and sweep picker are not included in v0.3.2.**
+**Development preview — Create script is not included in v0.3.2.**
 
 The planned workflow uses saved names instead of entering angle ranges in every automation:
 
 1. Save a direction with a name such as **Reading couch** or **Bed**.
-2. Choose a trigger: a pressure pad becoming occupied, an NFC scan, a schedule, or a button press.
-3. Choose **Set Direction Preset**, select your Dyson and saved name, and optionally choose a sweep.
+2. As an administrator, press **Create script** beneath the saved presets. This creates one reusable native script for this fan and HA user; it does not move the fan. Existing presets are imported automatically.
+3. Use **Open script** to find the script, named **Your fan: Set Direction Preset**. Call it directly from an automation's action picker and select **Preset** and **Sweep**. Buttons, NFC automations, and Stream Deck can call the same script.
+4. Set your own trigger in the automation: a pressure pad becoming occupied, an NFC scan, a schedule, or a button press.
 
-The same action can be used inside a reusable script or as a button’s **Perform action** behavior.
+Once created, the script runs inside Home Assistant with the dashboard closed. Adding or changing presets in the card updates the managed script automatically while an administrator is using it. Preset IDs stay stable when names change, so existing calls continue to target the same saved position. Deleting a preset makes calls to that preset stop with an error; it does not silently redirect them to another position. Deleting all presets keeps the script present but prevents any recall.
+
+Each HA user and fan gets a distinct script ID. This separates preset sets; it does not make scripts private from other HA administrators. Non-admin users cannot create or update these scripts. Configuration/API errors leave presets usable in the card and show a script-sync warning. **Update script** retries the update. Do not manually edit managed script steps: the card replaces those steps on the next preset update. User-created scripts with a conflicting ID are left untouched.
 
 ### Set Direction Preset options
 
 | Option | Select | Default |
 | --- | --- | --- |
-| Device | The Dyson fan to aim. | Required |
+| Script action | Your fan's generated **Set Direction Preset** script. | Choose the script for that fan |
 | Preset | One of your saved direction names. | Required |
 | Sweep | Keep the current setting, aim directly, or choose a sweep width. | **None — preserve current** |
 
@@ -202,7 +205,7 @@ The same action can be used inside a reusable script or as a button’s **Perfor
 | **45°** | Start a 45° sweep around the saved direction. |
 | **90°** | Start a 90° sweep around the saved direction. |
 | **180°** | Start a 180° sweep around the saved direction. |
-| **350°** | Start the widest supported sweep, positioned within the fan’s angle limits. |
+| **350°** | Start native 350° mode when the fan supports it; this full range cannot be centered on an arbitrary saved position. |
 
 ### Example workflows
 
@@ -217,11 +220,18 @@ For pressure pads, require occupancy for a few seconds to avoid repeated calls a
 
 The fan must already be on. Add a **Turn on** action before recalling the preset if your automation should also start the fan. Preset recall keeps the current fan speed.
 
-The image below illustrates choosing the device and saved name. The proposed sweep choices are listed in the table above.
+<details>
+<summary>Earlier named-preset picker reference</summary>
+
+This earlier action screenshot illustrates the saved-name picker. The new generated script has its fan built in and provides Preset and Sweep fields; its current options are listed above. This is not a screenshot of the new script generator.
 
 <p align="center">
   <img src=".github/images/direction-preset-automation.jpg" alt="Set Direction Preset action with a Dyson device and a saved preset dropdown" width="390">
 </p>
+
+</details>
+
+Calls to the same generated script are queued to avoid overlapping movement commands. Separate users' scripts and other fan controls do not share that queue. Add priority conditions if multiple automations may control the same fan.
 
 ## Sensors
 

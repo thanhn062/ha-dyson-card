@@ -1514,6 +1514,168 @@ class HaDysonCard extends HTMLElement {
     return `ha-dyson-card:direction-presets:${this._config.entity || "default"}`;
   }
 
+  _directionScriptIdentity() {
+    const user = this._hass?.user;
+    const device = this._deviceId();
+    if (!user?.is_admin || !user.id || !device) return null;
+    // Full HA identifiers avoid collisions between users and fans. Never use names
+    // as config keys: renaming a preset must not break existing automation calls.
+    if (!/^[a-zA-Z0-9_-]+$/.test(user.id) || !/^[a-zA-Z0-9_-]+$/.test(device)) return null;
+    const key = `dyson_direction_${device}_${user.id}`.toLowerCase().replaceAll("-", "_");
+    return { key, marker: `ha-dyson-card managed direction script v1; device=${device}; user=${user.id}` };
+  }
+
+  _buildDirectionScript(presets = this._directionPresets()) {
+    const identity = this._directionScriptIdentity();
+    if (!identity) throw new Error("An administrator must create the direction script.");
+    const fan = this._config.entity;
+    const device = this._deviceId();
+    const select = this._oscillationSelectEntity();
+    const options = this._normalizeDirectionPresets(presets);
+    // User text is a quoted Jinja literal, never executable template source.
+    const literal = (value) => `{{ ${JSON.stringify(JSON.stringify(value))} | from_json }}`;
+    const stop = (message) => ({ stop: message, error: true });
+    const oscillate = (value) => ({ action: "fan.oscillate", target: { entity_id: fan }, data: { oscillating: value } });
+    const angles = (low, high, tolerateFailure = false) => ({
+      action: "hass_dyson.set_oscillation_angles",
+      data: { device_id: device, lower_angle: low, upper_angle: high },
+      ...(tolerateFailure ? { continue_on_error: true } : {}),
+    });
+    const confirm = (expression, cleanup = false) => [
+      { wait_template: expression, timeout: { seconds: 8 }, continue_on_timeout: true },
+      { if: "{{ not wait.completed }}", then: [...(cleanup ? [oscillate(false)] : []), stop("Dyson did not confirm the requested direction or sweep.")] },
+    ];
+    const boundsConfirmed = (low, high, oscillation = null) => {
+      const checkOsc = oscillation === null ? "true" : `state_attr(fan_entity, 'oscillation_enabled') == ${oscillation ? 'true' : 'false'}`;
+      return `{{ is_state(fan_entity, 'on') and not is_state(sweep_entity, '350°') and state_attr(fan_entity, 'angle_low') is number and state_attr(fan_entity, 'angle_high') is number and (state_attr(fan_entity, 'angle_high') - state_attr(fan_entity, 'angle_low')) == (${high} - ${low}) and (state_attr(fan_entity, 'angle_low') - ${low}) == (state_attr(fan_entity, 'angle_high') - ${high}) and ((state_attr(fan_entity, 'angle_low') - ${low}) | abs) <= ${low === high ? 0 : 1} and ${checkOsc} }}`;
+    };
+    const applyRange = (cleanup = false) => ({
+      choose: [{ conditions: "{{ requested_span == 350 }}", sequence: [
+        { action: "select.select_option", target: { entity_id: select || "select.dyson_native_sweep_unavailable" }, data: { option: "350°" }, ...(cleanup ? { continue_on_error: true } : {}) },
+        ...confirm("{{ is_state(fan_entity, 'on') and is_state(sweep_entity, '350°') and state_attr(fan_entity, 'oscillation_enabled') == true }}", cleanup),
+      ] }],
+      default: [angles("{{ target_lower }}", "{{ target_upper }}", cleanup), ...confirm(boundsConfirmed("target_lower", "target_upper", true), cleanup)],
+    });
+    return {
+      alias: `${this._stateObj(fan)?.attributes?.friendly_name || "Dyson"}: Set Direction Preset`,
+      description: identity.marker,
+      icon: "mdi:rotate-orbit",
+      mode: "queued", max: 10,
+      fields: {
+        preset: { name: "Preset", description: "Choose a saved direction. Existing calls retain the same preset ID after renaming.", required: true,
+          selector: { select: { mode: "dropdown", options: options.map((p) => ({ label: p.name, value: p.id })) } } },
+        sweep: { name: "Sweep", description: "Preserve keeps the current width and oscillation state.", required: true, default: "preserve",
+          selector: { select: { mode: "dropdown", options: [
+            { label: "None — preserve current", value: "preserve" }, { label: "Direct (0°)", value: "0" },
+            ...[45, 90, 180, 350].map((width) => ({ label: `${width}°`, value: String(width) })),
+          ] } } },
+      },
+      sequence: [
+        { variables: { fan_entity: fan, sweep_entity: select || "select.dyson_native_sweep_unavailable", catalog: literal(options), sweep_choice: "{{ sweep | default('preserve') | string }}" } },
+        { variables: { matches: "{{ catalog | selectattr('id', 'eq', preset | default('') | string) | list }}" } },
+        { if: "{{ matches | length != 1 }}", then: [stop("Choose an existing saved preset. A deleted preset cannot be recalled.")] },
+        { if: "{{ sweep is defined and not ((sweep is string and sweep in ['preserve', '0', '45', '90', '180', '350']) or (sweep is integer and sweep is not boolean and sweep in [0, 45, 90, 180, 350])) }}", then: [stop("Unsupported sweep. Choose preserve, 0, 45, 90, 180, or 350.")] },
+        { if: "{{ not is_state(fan_entity, 'on') or state_attr(fan_entity, 'angle_low') is not number or state_attr(fan_entity, 'angle_high') is not number or state_attr(fan_entity, 'oscillation_enabled') not in [true, false] }}", then: [stop("Turn the Dyson on and wait for its angle and oscillation readings.")] },
+        { variables: {
+          center: "{{ matches[0].direction | int }}",
+          original_center: "{{ 175 if is_state(sweep_entity, '350°') else (state_attr(fan_entity, 'angle_low') + state_attr(fan_entity, 'angle_high')) / 2 }}",
+          original_span: "{{ 350 if is_state(sweep_entity, '350°') else (states(sweep_entity).replace('°', '') | int) if states(sweep_entity) in ['45°', '90°', '180°'] else state_attr(fan_entity, 'angle_high') - state_attr(fan_entity, 'angle_low') }}",
+          original_oscillation: "{{ state_attr(fan_entity, 'oscillation_enabled') }}",
+        } },
+        { variables: { requested_span: "{{ original_span if sweep_choice == 'preserve' else sweep_choice | int }}" } },
+        { if: "{{ requested_span < 0 or requested_span > 350 }}", then: [stop("Dyson reported an invalid sweep range.")] },
+        { if: "{{ requested_span == 350 and '350°' not in (state_attr(sweep_entity, 'options') or []) }}", then: [stop("This Dyson has no native 350° sweep control.")] },
+        { variables: {
+          final_oscillation: "{{ original_oscillation if sweep_choice == 'preserve' else requested_span > 0 }}",
+          target_lower: "{{ [0, [350 - requested_span, center - (requested_span // 2)] | min] | max }}",
+        } },
+        { variables: { target_upper: "{{ target_lower + requested_span }}" } },
+        { choose: [{ conditions: "{{ final_oscillation }}", sequence: [applyRange()] }], default: [
+          angles("{{ center }}", "{{ center }}", true),
+          ...confirm(boundsConfirmed("center", "center"), true),
+          { delay: { seconds: "{{ [1.5, [7.0, ((center - original_center) | abs) / 30 + 0.8] | min] | max }}" } },
+          { if: "{{ requested_span > 0 }}", then: [applyRange(true)] },
+          oscillate(false),
+          ...confirm("{{ is_state(fan_entity, 'on') and state_attr(fan_entity, 'oscillation_enabled') == false and ((requested_span == 350 and is_state(sweep_entity, '350°')) or (requested_span != 350 and not is_state(sweep_entity, '350°') and state_attr(fan_entity, 'angle_high') - state_attr(fan_entity, 'angle_low') == requested_span)) }}", true),
+        ] },
+      ],
+    };
+  }
+
+  _syncDirectionScript(options = {}) {
+    const identity = this._directionScriptIdentity();
+    const snapshot = { ...options, presets: options.presets || [...this._directionPresets()] };
+    this._directionScriptWriteQueue = (this._directionScriptWriteQueue || Promise.resolve()).catch(() => undefined).then(() => {
+      if (identity?.key !== this._directionScriptIdentity()?.key) return false;
+      return this._writeDirectionScript(snapshot);
+    });
+    return this._directionScriptWriteQueue;
+  }
+
+  async _writeDirectionScript({ create = false, presets = this._directionPresets() } = {}) {
+    const identity = this._directionScriptIdentity();
+    if (!identity || !this._hass?.callApi) {
+      if (create) throw new Error("An administrator must create the direction script.");
+      return false;
+    }
+    const path = `config/script/config/${identity.key}`;
+    let existing;
+    try { existing = await this._hass.callApi("GET", path); }
+    catch (error) {
+      if (Number(error?.status_code ?? error?.status) !== 404) throw error;
+      if (!create) return false;
+    }
+    if (identity.key !== this._directionScriptIdentity()?.key) return false;
+    if (existing && existing.description !== identity.marker) throw new Error("A script already uses this ID. It was left unchanged.");
+    if (existing) this._directionScriptKey = identity.key;
+    if (this._hass.callWS) {
+      // Another browser may have saved newer presets while this update waited.
+      // Always generate from HA's current user data once the card has synced it.
+      const latest = await this._hass.callWS({ type: "frontend/get_user_data", key: this._presetStorageKey() });
+      if (latest?.value !== null && latest?.value !== undefined) presets = this._normalizeDirectionPresets(latest.value);
+      if (identity.key !== this._directionScriptIdentity()?.key) return false;
+    }
+    const config = this._buildDirectionScript(presets);
+    const canonical = (value) => JSON.stringify(value, (_key, item) => item && typeof item === "object" && !Array.isArray(item)
+      ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item);
+    if (existing && canonical(existing) === canonical(config)) {
+      this._directionScriptSyncError = "";
+      return true;
+    }
+    await this._hass.callApi("POST", path, config);
+    const saved = await this._hass.callApi("GET", path);
+    if (canonical(saved) !== canonical(config)) throw new Error("The direction script could not be verified after saving.");
+    this._directionScriptKey = identity.key;
+    this._directionScriptSyncError = "";
+    return true;
+  }
+
+  async _refreshManagedDirectionScript(presets) {
+    try {
+      await this._syncDirectionScript({ presets });
+    } catch (error) {
+      this._directionScriptSyncError = "Direction script is out of sync. Use Create / update script to retry.";
+      this._showToast(this._directionScriptSyncError);
+    }
+    this._render();
+  }
+
+  async _createDirectionScript() {
+    if (this._directionScriptBusy) return;
+    this._directionScriptBusy = true;
+    this._render();
+    try {
+      await this._ensureDirectionPresets();
+      await this._syncDirectionScript({ create: true });
+      this._showToast("Direction script ready. Open script to use it in automations.");
+    } catch (error) {
+      this._showToast(`Could not create direction script: ${error.message || error}`);
+    } finally {
+      this._directionScriptBusy = false;
+      this._render();
+    }
+  }
+
   _normalizeDirectionPresets(value) {
     const candidates = Array.isArray(value) ? value : Array.isArray(value?.presets) ? value.presets : [];
     return candidates
@@ -1619,6 +1781,8 @@ class HaDysonCard extends HTMLElement {
     this._directionPresetWriteQueue = Promise.resolve();
     this._directionPresetWriteRevision = 0;
     this._directionPresetRetryAfter = 0;
+    this._directionScriptKey = null;
+    this._directionScriptSyncError = "";
   }
 
   async _subscribeDirectionPresetUpdates(key, generation) {
@@ -1636,6 +1800,7 @@ class HaDysonCard extends HTMLElement {
           if (this._hasPendingDirectionPresetSync(key)) return;
           const value = event?.value ?? event?.event?.value ?? null;
           this._setDirectionPresetCache(key, value, { writeLocal: true, render: true });
+          void this._refreshManagedDirectionScript(this._normalizeDirectionPresets(value));
         },
         { type: "frontend/subscribe_user_data", key }
       );
@@ -1694,6 +1859,7 @@ class HaDysonCard extends HTMLElement {
         }
 
         await this._subscribeDirectionPresetUpdates(key, generation);
+        await this._refreshManagedDirectionScript(presets);
         return this._directionPresetCache;
       } catch (_error) {
         if (generation === this._directionPresetSyncGeneration && key === this._presetStorageKey()) {
@@ -1726,6 +1892,7 @@ class HaDysonCard extends HTMLElement {
           key,
           value: this._directionPresetPayload(normalized),
         });
+        await this._refreshManagedDirectionScript(normalized);
         if (writeRevision === this._directionPresetWriteRevision) {
           this._setPendingDirectionPresetSync(key, false);
         }
@@ -1822,6 +1989,11 @@ class HaDysonCard extends HTMLElement {
           `;
           }).join("") : `<span class="direction-presets-empty">${this._t("no_direction_presets_saved")}</span>`}
         </div>
+        <div class="direction-script-actions">
+          ${this._directionScriptIdentity() ? `<button class="preset-action" data-create-direction-script ${!presets.length || this._directionScriptBusy ? "disabled" : ""}><ha-icon icon="mdi:script-text-outline"></ha-icon> ${this._directionScriptBusy ? "Saving script…" : this._directionScriptKey === this._directionScriptIdentity()?.key ? "Update script" : "Create script"}</button>` : ""}
+          ${this._directionScriptKey && this._directionScriptKey === this._directionScriptIdentity()?.key ? `<a class="preset-action" href="/config/script/edit/${this._directionScriptKey}">Open script</a>` : ""}
+        </div>
+        ${this._directionScriptSyncError ? `<div role="status">${this._escapeHtml(this._directionScriptSyncError)}</div>` : ""}
         ${editor}
       </div>
     `;
@@ -2583,6 +2755,10 @@ class HaDysonCard extends HTMLElement {
       this._presetDraftIcon = "mdi:crosshairs-gps";
       this._presetEditorOpen = true;
       this._render();
+    });
+
+    this.shadowRoot?.querySelector("[data-create-direction-script]")?.addEventListener("click", () => {
+      void this._createDirectionScript();
     });
 
     this.shadowRoot?.querySelector("[data-preset-cancel]")?.addEventListener("click", () => {
@@ -4099,6 +4275,27 @@ class HaDysonCard extends HTMLElement {
           padding: 0 10px;
           background: var(--dyson-raised-bg);
           font-size: 0.72rem;
+        }
+        .direction-script-actions {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .direction-script-actions:empty {
+          display: none;
+        }
+        .direction-script-actions .preset-action {
+          box-sizing: border-box;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          text-decoration: none;
+          cursor: pointer;
+        }
+        .direction-script-actions ha-icon {
+          --mdc-icon-size: 16px;
         }
         .debug-panel > summary,
         .debug-entity > summary {

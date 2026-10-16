@@ -29,3 +29,24 @@ jobs:
         run: node --check ha-dyson-card.js
       - name: Run regression tests
         run: node tests/regressions.mjs
+      - name: Test managed direction scripts
+        run: node tests/direction-scripts.mjs
+
+  validate-native-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Install Home Assistant script engine
+        run: pip install homeassistant==2026.10.0
+      - name: Generate script fixtures
+        run: node tests/direction-scripts.mjs /tmp/dyson-script-fixtures.json
+      - name: Execute native script regressions
+        env:
+          DYSON_SCRIPT_FIXTURES: /tmp/dyson-script-fixtures.json
+        run: python tests/direction_script_runtime.py
