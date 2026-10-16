@@ -2180,7 +2180,11 @@ class HaDysonCard extends HTMLElement {
       const bounds = entityId === this._config.entity
         ? this._currentBounds(fan.attributes || {}) : this._extractBounds(fan.attributes || {});
       const reportedOscillation = this._oscillationEnabled(fan.attributes || {});
-      if (bounds?.lower === lower && bounds?.upper === upper
+      const lowerShift = bounds ? bounds.lower - lower : null;
+      const upperShift = bounds ? bounds.upper - upper : null;
+      const endpointsMatch = bounds && lowerShift === upperShift
+        && (lowerShift === 0 || (upper > lower && Math.abs(lowerShift) <= 1));
+      if (endpointsMatch
           && (oscillating === null || reportedOscillation === oscillating)) return;
       await this._directionDelay(100);
     } while (Date.now() < deadline);

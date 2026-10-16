@@ -382,6 +382,9 @@ stale.card._directionDelay = async () => {
 await stale.card._waitForDirectionState("fan.test", 200, 200, true);
 assert.equal(polls, 1, "optimistic oscillating alone does not confirm a command");
 
+const quantized = movementCard({ lower: 142, upper: 187, oscillating: true });
+await quantized.card._waitForDirectionState("fan.test", 143, 188, true);
+
 const timeout = movementCard();
 let clock = 0;
 context.Date = class extends Date { static now() { return clock; } };
