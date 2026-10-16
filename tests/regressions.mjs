@@ -412,4 +412,48 @@ await handler();
 assert.equal(click.fan.attributes.angle_high - click.fan.attributes.angle_low, 90, "button reads current settings, not attributes captured at render");
 assert.equal(click.calls.some((call) => call.domain === "select"), false, "stale preset selects never receive button calls");
 
+// Selected sweep and angle endpoints can report different values during updates.
+async function clickSavedDirection(card) {
+  let callback;
+  card._directionPresets = () => [{ id: "saved", name: "Saved direction", direction: 200 }];
+  card._bindWheel = () => {};
+  card.shadowRoot = {
+    querySelector: () => null,
+    querySelectorAll: (selector) => selector === "[data-preset-apply]"
+      ? [{ dataset: { presetApply: "saved" }, addEventListener: (_event, handler) => { callback = handler; } }]
+      : [],
+  };
+  card._bindControls({}, "On");
+  await callback();
+}
+
+for (const oscillating of [true, false]) {
+  const selected = movementCard({ lower: 100, upper: 100, oscillating });
+  selected.card._derived.oscillationSelectEntity = "select.test_sweep";
+  selected.card._hass.states["select.test_sweep"] = { state: "45°", attributes: {} };
+  await clickSavedDirection(selected.card);
+  assert.equal(selected.fan.attributes.angle_high - selected.fan.attributes.angle_low, 45,
+    "saved direction preserves the selected sweep when fan endpoints report zero width");
+  assert.equal(selected.fan.attributes.oscillation_enabled, oscillating,
+    "preserving the configured sweep must not toggle oscillation");
+}
+
+const customSweep = movementCard({ lower: 55, upper: 145, oscillating: true });
+customSweep.card._derived.oscillationSelectEntity = "select.test_sweep";
+customSweep.card._hass.states["select.test_sweep"] = { state: "Custom", attributes: {} };
+await clickSavedDirection(customSweep.card);
+assert.equal(customSweep.fan.attributes.angle_high - customSweep.fan.attributes.angle_low, 90,
+  "custom sweep falls back to its configured endpoints");
+
+for (const width of [0, 90]) {
+  const recentSweep = movementCard({ lower: 100, upper: 100, oscillating: width !== 0 });
+  recentSweep.card._derived.oscillationSelectEntity = "select.test_sweep";
+  recentSweep.card._hass.states["select.test_sweep"] = { state: "45°", attributes: {} };
+  recentSweep.card._optimisticWidth = width;
+  recentSweep.card._optimisticSince = Date.now();
+  await clickSavedDirection(recentSweep.card);
+  assert.equal(recentSweep.fan.attributes.angle_high - recentSweep.fan.attributes.angle_low, width,
+    "a just-selected sweep takes precedence while HA still reports the previous selection");
+}
+
 console.log("regressions passed");

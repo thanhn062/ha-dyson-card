@@ -2599,7 +2599,12 @@ class HaDysonCard extends HTMLElement {
           return;
         }
         const liveAttributes = this._stateObj(this._config.entity)?.attributes || {};
-        const configuredWidth = this._widthFromBounds(this._currentBounds(liveAttributes));
+        const localSweepPending = (this._pendingActive() && Number.isFinite(this._pendingWidth))
+          || (this._optimisticDirectionActive() && Number.isFinite(this._optimisticWidth));
+        // Endpoints can still describe a point move while a nonzero sweep is selected.
+        const configuredWidth = localSweepPending
+          ? this._currentWidth(liveAttributes)
+          : this._selectSweepWidth() ?? this._widthFromBounds(this._currentBounds(liveAttributes));
         await this._commitDirection(
           preset.direction,
           configuredWidth ?? this._currentWidth(liveAttributes),
