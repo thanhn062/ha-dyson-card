@@ -42,6 +42,7 @@ The goal is to make the Dyson feel like a polished Home Assistant appliance cont
 - Fully functional Dyson control surface for the main things you would normally open the Dyson app to do
 - Save preset directions with a name and icon, then tap once to aim the fan back there
 - Mobile-first layout with direction, sweep, airflow, timer, sensor, filter, heat, and mode controls in one card
+- Run repeatable fan settings from scripts, NFC tags, schedules, or Stream Deck buttons ([automation examples](#scripts-and-automations))
 
 ## Features
 
@@ -76,6 +77,8 @@ Each preset stores:
 Each preset chip displays its saved angle. Tapping it uses the existing Dyson angle controls, preserving the configured sweep width and oscillation state. The fan must be on to recall a saved direction.
 
 Presets are saved in Home Assistant's per-user frontend storage and synchronized across that user's cards and browsers, with a local cache for temporary connection failures. You create your own preset names, icons, and angles in the card. No additional integration or helper is required.
+
+For NFC tags, physical buttons, schedules, and Stream Deck, create a reusable Home Assistant script using the [Scripts and Automations](#scripts-and-automations) examples below.
 
 ## Requirements
 
@@ -155,6 +158,80 @@ sensor_detail_layout: inline
 | Saved direction preset | Existing `hass_dyson.set_oscillation_angles` and `fan.oscillate` actions |
 | Heat / Fan only | `climate.set_hvac_mode` |
 | Target temperature | `climate.set_temperature` |
+
+## Scripts and Automations
+
+Use a Home Assistant script to make an aiming position available to automations, NFC tags, physical buttons, voice routines, and Stream Deck. Once configured, these run through Home Assistant even when the dashboard is closed.
+
+Card presets and Home Assistant scripts are configured separately. The card saves each user's preset names and angles in frontend storage; those names do not automatically become callable Home Assistant actions. Use the angle shown on a saved chip as a reference when setting up your script.
+
+### Create a reusable script
+
+In **Settings → Automations & scenes → Scripts**, create a script and open **Edit in YAML**. Paste this example, replacing `fan.my_dyson` and `YOUR_DYSON_DEVICE_ID` with your own device values:
+
+```yaml
+alias: Dyson reading chair
+mode: single
+sequence:
+  - action: fan.turn_on
+    target:
+      entity_id: fan.my_dyson
+  - action: hass_dyson.set_oscillation_angles
+    data:
+      device_id: YOUR_DYSON_DEVICE_ID
+      lower_angle: 90
+      upper_angle: 180
+  - action: fan.oscillate
+    target:
+      entity_id: fan.my_dyson
+    data:
+      oscillating: true
+```
+
+This example turns the fan on and selects a **90° sweep centered at 135°**. It explicitly enables oscillation. Adjust the lower and upper angles for your location: their difference is the sweep width, and their midpoint is the center direction. Both angles must be between 0° and 350°, with the lower angle no greater than the upper angle. The script sets its own range and oscillation state each time it runs.
+
+To find the device ID, open **Developer tools → Actions**, select **Dyson: Set oscillation angles**, choose your Dyson device, and switch to YAML to copy the `device_id`. Use the fan entity belonging to that same device.
+
+Save the script and check its entity ID. The examples below use `script.dyson_reading_chair`; replace it if Home Assistant assigned a different ID. Run it once to check the chosen angle range before connecting a trigger.
+
+### Run it from an automation or button
+
+Use **Scripts: Turn on** and select your script. The same action can be used by a schedule, a physical button automation, or another script:
+
+```yaml
+action: script.turn_on
+target:
+  entity_id: script.dyson_reading_chair
+```
+
+### Scan an NFC tag
+
+Register a tag in **Settings → Tags** using the Home Assistant Companion app. Create an automation with **Tag scanned** as its trigger and **Scripts: Turn on** as its action:
+
+```yaml
+alias: NFC - Dyson reading chair
+triggers:
+  - trigger: tag
+    tag_id: REPLACE_WITH_YOUR_TAG_ID
+actions:
+  - action: script.turn_on
+    target:
+      entity_id: script.dyson_reading_chair
+mode: single
+```
+
+### Use a Stream Deck button
+
+In a Stream Deck plugin that supports Home Assistant action/service calls, configure a button with:
+
+| Setting | Value |
+| --- | --- |
+| Action / service | `script.turn_on` |
+| Target entity | `script.dyson_reading_chair` |
+
+Plugin field names vary. If the plugin uses service data instead of a separate target field, use `{"entity_id": "script.dyson_reading_chair"}`. The button runs the same script as your NFC tag and automations, so you only need to update the script when you change the desired settings.
+
+See Home Assistant's official [script](https://www.home-assistant.io/integrations/script/) and [NFC tag](https://www.home-assistant.io/integrations/tag/) documentation for additional triggers and setup options.
 
 ## Sensors
 
