@@ -368,6 +368,7 @@ failed.card._waitForDirectionState = async () => { throw new Error("confirmation
 await assert.rejects(failed.card._commitDirection(200, 0, { preserveOscillation: true }), /confirmation failed/);
 assert.equal(failed.calls.at(-1).data.oscillating, false, "stop temporary motion after confirmation failure");
 assert.equal(failed.card._busy, false, "failed recalls release controls");
+assert.equal(failed.card._directionInFlight, false, "failed recalls release the direction serializer");
 
 const stale = movementCard();
 let polls = 0;
@@ -380,6 +381,9 @@ stale.card._directionDelay = async () => {
 };
 await stale.card._waitForDirectionState("fan.test", 200, 200, true);
 assert.equal(polls, 1, "optimistic oscillating alone does not confirm a command");
+
+const quantized = movementCard({ lower: 142, upper: 187, oscillating: true });
+await quantized.card._waitForDirectionState("fan.test", 143, 188, true);
 
 const timeout = movementCard();
 let clock = 0;
@@ -396,8 +400,15 @@ const moving = overlap.card._commitDirection(200, 0, { preserveOscillation: true
 while (!releaseMove) await Promise.resolve();
 await overlap.card._commitDirection(250, 0, { preserveOscillation: true });
 assert.equal(overlap.calls.length, 1, "a second click cannot interrupt an in-flight recall");
+assert.equal(overlap.card._busy, false, "direction confirmation does not lock unrelated controls");
+assert.equal(overlap.card._currentDirection(overlap.fan.attributes), 250, "queued target is shown immediately");
+await overlap.card._commitDirection(275, 0, { preserveOscillation: true });
+assert.equal(overlap.calls.length, 1, "additional taps do not overlap device commands");
+assert.equal(overlap.card._currentDirection(overlap.fan.attributes), 275, "the latest queued target replaces earlier taps");
+overlap.card._directionDelay = async () => {};
 releaseMove();
 await moving;
+assert.equal(overlap.fan.attributes.angle_low, 275, "latest direction is applied after the current move");
 
 const click = movementCard({ lower: 55, upper: 145 });
 let handler;
@@ -411,5 +422,49 @@ click.card._bindControls({ angle_low: 100, angle_high: 100 }, "On");
 await handler();
 assert.equal(click.fan.attributes.angle_high - click.fan.attributes.angle_low, 90, "button reads current settings, not attributes captured at render");
 assert.equal(click.calls.some((call) => call.domain === "select"), false, "stale preset selects never receive button calls");
+
+// Selected sweep and angle endpoints can report different values during updates.
+async function clickSavedDirection(card) {
+  let callback;
+  card._directionPresets = () => [{ id: "saved", name: "Saved direction", direction: 200 }];
+  card._bindWheel = () => {};
+  card.shadowRoot = {
+    querySelector: () => null,
+    querySelectorAll: (selector) => selector === "[data-preset-apply]"
+      ? [{ dataset: { presetApply: "saved" }, addEventListener: (_event, handler) => { callback = handler; } }]
+      : [],
+  };
+  card._bindControls({}, "On");
+  await callback();
+}
+
+for (const oscillating of [true, false]) {
+  const selected = movementCard({ lower: 100, upper: 100, oscillating });
+  selected.card._derived.oscillationSelectEntity = "select.test_sweep";
+  selected.card._hass.states["select.test_sweep"] = { state: "45°", attributes: {} };
+  await clickSavedDirection(selected.card);
+  assert.equal(selected.fan.attributes.angle_high - selected.fan.attributes.angle_low, 45,
+    "saved direction preserves the selected sweep when fan endpoints report zero width");
+  assert.equal(selected.fan.attributes.oscillation_enabled, oscillating,
+    "preserving the configured sweep must not toggle oscillation");
+}
+
+const customSweep = movementCard({ lower: 55, upper: 145, oscillating: true });
+customSweep.card._derived.oscillationSelectEntity = "select.test_sweep";
+customSweep.card._hass.states["select.test_sweep"] = { state: "Custom", attributes: {} };
+await clickSavedDirection(customSweep.card);
+assert.equal(customSweep.fan.attributes.angle_high - customSweep.fan.attributes.angle_low, 90,
+  "custom sweep falls back to its configured endpoints");
+
+for (const width of [0, 90]) {
+  const recentSweep = movementCard({ lower: 100, upper: 100, oscillating: width !== 0 });
+  recentSweep.card._derived.oscillationSelectEntity = "select.test_sweep";
+  recentSweep.card._hass.states["select.test_sweep"] = { state: "45°", attributes: {} };
+  recentSweep.card._optimisticWidth = width;
+  recentSweep.card._optimisticSince = Date.now();
+  await clickSavedDirection(recentSweep.card);
+  assert.equal(recentSweep.fan.attributes.angle_high - recentSweep.fan.attributes.angle_low, width,
+    "a just-selected sweep takes precedence while HA still reports the previous selection");
+}
 
 console.log("regressions passed");
