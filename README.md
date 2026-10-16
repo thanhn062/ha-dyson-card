@@ -167,10 +167,6 @@ The default badge row shows the values most useful at a glance:
 | AQI | Air Quality Index or category exposed by the integration. |
 | Filter life | Remaining HEPA/carbon filter life percentage. |
 
-### Filter life indicator
-
-The filter badge keeps its percentage visible and colors only the filter icon when attention is needed: amber at 20% remaining or less, and red at 0%. Normal and unavailable readings stay neutral. When multiple filters are available, the badge continues to show the lowest remaining percentage.
-
 The `More` section expands air-quality details when matching sensors exist:
 
 | Detail | Meaning |
@@ -180,6 +176,10 @@ The `More` section expands air-quality details when matching sensors exist:
 | PM10 | Larger particulate matter around 10 microns. |
 | VOC | Volatile Organic Compounds from sources like cooking, cleaning products, smoke, or materials. |
 | NO2 | Nitrogen dioxide, commonly associated with combustion sources. |
+
+### Filter life indicator
+
+The filter badge keeps its percentage visible and colors only the filter icon when attention is needed: amber at 20% remaining or less, and red at 0%. Normal and unavailable readings stay neutral. When multiple filters are available, the badge continues to show the lowest remaining percentage.
 
 ## Model Compatibility
 
