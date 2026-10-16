@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.2 - 2026-10-16
+
+### Fixes
+
+- Saved-angle buttons preserve the selected sweep width, including when angle readings are stale.
+- Prevent false confirmation timeouts when the fan reports a one-degree rounding difference.
+
+### Improvements
+
+- Replace the prolonged “Applying angle” message and spinner with a brief, subtle indicator.
+- Keep controls responsive while angle changes are confirmed in the background.
+- When several angle or sweep changes are made quickly, apply the latest choice without overlapping commands.
+
 ## 0.3.1 - 2026-10-10
 
 ### Fixed
