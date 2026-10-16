@@ -368,6 +368,7 @@ failed.card._waitForDirectionState = async () => { throw new Error("confirmation
 await assert.rejects(failed.card._commitDirection(200, 0, { preserveOscillation: true }), /confirmation failed/);
 assert.equal(failed.calls.at(-1).data.oscillating, false, "stop temporary motion after confirmation failure");
 assert.equal(failed.card._busy, false, "failed recalls release controls");
+assert.equal(failed.card._directionInFlight, false, "failed recalls release the direction serializer");
 
 const stale = movementCard();
 let polls = 0;
@@ -396,8 +397,15 @@ const moving = overlap.card._commitDirection(200, 0, { preserveOscillation: true
 while (!releaseMove) await Promise.resolve();
 await overlap.card._commitDirection(250, 0, { preserveOscillation: true });
 assert.equal(overlap.calls.length, 1, "a second click cannot interrupt an in-flight recall");
+assert.equal(overlap.card._busy, false, "direction confirmation does not lock unrelated controls");
+assert.equal(overlap.card._currentDirection(overlap.fan.attributes), 250, "queued target is shown immediately");
+await overlap.card._commitDirection(275, 0, { preserveOscillation: true });
+assert.equal(overlap.calls.length, 1, "additional taps do not overlap device commands");
+assert.equal(overlap.card._currentDirection(overlap.fan.attributes), 275, "the latest queued target replaces earlier taps");
+overlap.card._directionDelay = async () => {};
 releaseMove();
 await moving;
+assert.equal(overlap.fan.attributes.angle_low, 275, "latest direction is applied after the current move");
 
 const click = movementCard({ lower: 55, upper: 145 });
 let handler;

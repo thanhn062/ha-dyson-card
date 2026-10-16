@@ -270,6 +270,9 @@ class HaDysonCard extends HTMLElement {
   }
 
   disconnectedCallback() {
+    window.clearTimeout(this._directionFeedbackTimer);
+    this._directionFeedback = false;
+    this._queuedDirection = null;
     this._stopDirectionPresetSubscription();
   }
 
@@ -896,6 +899,7 @@ class HaDysonCard extends HTMLElement {
   }
 
   _currentWidth(attributes) {
+    if (this._queuedDirection) return this._queuedDirection.width;
     if (this._draggingDial && Number.isFinite(this._draftWidth)) {
       return this._normalizeAngle(this._draftWidth);
     }
@@ -909,6 +913,7 @@ class HaDysonCard extends HTMLElement {
   }
 
   _currentDirection(attributes) {
+    if (this._queuedDirection) return this._queuedDirection.center;
     if (this._draggingDial && Number.isFinite(this._draftDirection)) {
       return this._normalizeAngle(this._draftDirection);
     }
@@ -2212,7 +2217,42 @@ class HaDysonCard extends HTMLElement {
     await this._waitForDirectionState(entityId, bounds.lower, bounds.upper, false);
   }
 
-  async _commitDirection(direction, width, { preserveOscillation = false } = {}) {
+  async _runDirectionOperation(operation, direction, width) {
+    const request = { operation, ...this._boundsFromCenterWidth(direction, width) };
+    // Feedback acknowledges the tap; slow device confirmation stays in the background.
+    this._directionFeedback = true;
+    window.clearTimeout(this._directionFeedbackTimer);
+    this._directionFeedbackTimer = window.setTimeout(() => {
+      this._directionFeedback = false;
+      this._render();
+    }, 650);
+    if (this._directionInFlight) {
+      this._queuedDirection = request;
+      this._render();
+      return;
+    }
+    this._directionInFlight = true;
+    this._render();
+    try {
+      await operation();
+    } finally {
+      this._directionInFlight = false;
+      const next = this._queuedDirection;
+      this._queuedDirection = null;
+      if (next) {
+        await this._runDirectionOperation(next.operation, next.center, next.width);
+      }
+      this._render();
+    }
+  }
+
+  async _commitDirection(direction, width, options = {}) {
+    return this._runDirectionOperation(
+      () => this._applyDirection(direction, width, options), direction, width,
+    );
+  }
+
+  async _applyDirection(direction, width, { preserveOscillation = false } = {}) {
     const deviceId = this._deviceId();
     if (!this._hass || !deviceId || this._busy) return;
     const attributes = this._stateObj(this._config.entity)?.attributes || {};
@@ -2226,7 +2266,6 @@ class HaDysonCard extends HTMLElement {
     const currentWidth = this._currentWidth(this._stateObj(this._config.entity)?.attributes || {});
     if (!this._pendingActive() && this._directionWidthMatches(center, normalizedWidth, currentDirection, currentWidth)) return;
 
-    this._busy = true;
     if (fanOn) {
       this._setPendingDirection(center, normalizedWidth, directMode ? this._t("point_fan") : this._t("apply_angle"));
     } else {
@@ -2285,7 +2324,6 @@ class HaDysonCard extends HTMLElement {
       this._clearOptimisticDirection(false);
       throw error;
     } finally {
-      this._busy = false;
       this._draftDirection = null;
       this._draftWidth = null;
       this._render();
@@ -2645,13 +2683,20 @@ class HaDysonCard extends HTMLElement {
   }
 
   async _setSweepWidth(width, attributes) {
+    return this._runDirectionOperation(
+      () => this._applySweepWidth(width, this._stateObj(this._config.entity)?.attributes || {}),
+      this._currentDirection(attributes), width,
+    );
+  }
+
+  async _applySweepWidth(width, attributes) {
     if (!this._hass || this._busy) return;
     const normalizedWidth = this._normalizeAngle(width);
     const direction = this._currentDirection(attributes);
     if (!this._pendingActive() && this._normalizeAngle(this._currentWidth(attributes)) === normalizedWidth) return;
 
     if (normalizedWidth === 0) {
-      await this._commitDirection(direction, 0);
+      await this._applyDirection(direction, 0);
       return;
     }
 
@@ -2660,7 +2705,6 @@ class HaDysonCard extends HTMLElement {
     const options = this._stateObj(selectEntity)?.attributes?.options || [];
     if (selectEntity && options.includes(option)) {
       const fanOn = this._stateObj(this._config.entity)?.state === "on";
-      this._busy = true;
       if (fanOn) {
         this._setPendingDirection(direction, normalizedWidth, `${this._t("apply_sweep")} ${option} ${this._t("sweep")}`);
       } else {
@@ -2684,13 +2728,12 @@ class HaDysonCard extends HTMLElement {
         this._clearOptimisticDirection(false);
         throw error;
       } finally {
-        this._busy = false;
         this._render();
       }
       return;
     }
 
-    await this._commitDirection(direction, normalizedWidth);
+    await this._applyDirection(direction, normalizedWidth);
   }
 
   _render() {
@@ -2760,12 +2803,6 @@ class HaDysonCard extends HTMLElement {
     const handle = this._pointForAngle(160, 160, 128, visualCenter);
     const presetWidths = [0, 45, 90, 180, 350];
     const controlReady = fanAvailable && Boolean(this._deviceId());
-    const operationActive = this._busy || this._pendingActive();
-    const operationLabel = this._busy
-      ? this._pendingLabel || this._t("applying")
-      : this._pendingActive()
-        ? this._pendingLabel || this._t("waiting_for_device")
-        : "";
     const hideUnsupported = Boolean(this._config.hide_unsupported);
     const hideEmptySensors = Boolean(this._config.hide_empty_sensors);
     const sensorDetailLayout = this._sensorDetailLayout();
@@ -3391,19 +3428,10 @@ class HaDysonCard extends HTMLElement {
           fill: transparent;
           pointer-events: none;
         }
-        .wheel-spinner {
-          fill: none;
-          stroke: var(--primary-color, #4f46e5);
-          stroke-width: 3;
-          stroke-linecap: round;
-          stroke-dasharray: 18 34;
-          transform-origin: 160px 160px;
-          animation: dyson-spin 1.6s linear infinite;
-        }
-        @keyframes dyson-spin {
-          to {
-            transform: rotate(360deg);
-          }
+        .direction-feedback {
+          fill: var(--primary-color, #4f46e5);
+          opacity: 0.45;
+          pointer-events: none;
         }
         .wheel-sensor-strip {
           width: 100%;
@@ -3780,23 +3808,6 @@ class HaDysonCard extends HTMLElement {
           font-weight: 900;
           letter-spacing: -0.02em;
           pointer-events: none;
-        }
-        .operation-status {
-          min-height: 8px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: min(100%, 292px);
-          margin: -18px auto -1px;
-          padding: 2px 10px;
-          border-radius: 999px;
-          background: ${operationActive ? "color-mix(in srgb, var(--primary-color, #03a9f4) 10%, transparent)" : "transparent"};
-          color: var(--secondary-text-color);
-          font-size: 0.62rem;
-          font-weight: 760;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
         }
         .mode-row {
           box-sizing: border-box;
@@ -4320,7 +4331,7 @@ class HaDysonCard extends HTMLElement {
                     <path class="wheel-cone" d="${conePath}" style="${bounds.width ? "" : "display:none;"}"></path>
                     <circle class="wheel-core" cx="160" cy="160" r="48"></circle>
                     <circle class="wheel-core-inner" cx="160" cy="160" r="36"></circle>
-                    ${operationActive ? `<circle class="wheel-spinner" cx="160" cy="160" r="42"></circle>` : ""}
+                    ${this._directionFeedback ? `<circle class="direction-feedback" cx="160" cy="198" r="2.5"></circle>` : ""}
                   </svg>
                 </button>
                 <svg class="wheel-direction-line-overlay" viewBox="0 0 320 320" aria-hidden="true">
@@ -4348,10 +4359,6 @@ class HaDysonCard extends HTMLElement {
                   <ha-icon icon="mdi:power"></ha-icon>
                 </button>
               </div>
-            </div>
-
-            <div class="operation-status" aria-live="polite">
-              ${operationActive ? this._escapeHtml(operationLabel) : ""}
             </div>
 
             ${showModeRow ? `
