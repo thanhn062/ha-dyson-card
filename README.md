@@ -242,7 +242,7 @@ The default badge row shows the values most useful at a glance:
 | Temperature | Ambient temperature reported by the Dyson device. |
 | Humidity | Ambient relative humidity. |
 | AQI | Air Quality Index or category exposed by the integration. |
-| Filter life | Remaining HEPA/carbon filter life percentage. |
+| Filter life | Lowest remaining HEPA/carbon percentage. Icon: amber at ≤20%, red at 0%; normal and unavailable readings stay neutral. |
 
 The `More` section expands air-quality details when matching sensors exist:
 
@@ -253,10 +253,6 @@ The `More` section expands air-quality details when matching sensors exist:
 | PM10 | Larger particulate matter around 10 microns. |
 | VOC | Volatile Organic Compounds from sources like cooking, cleaning products, smoke, or materials. |
 | NO2 | Nitrogen dioxide, commonly associated with combustion sources. |
-
-### Filter life indicator
-
-The filter badge keeps its percentage visible and colors only the filter icon when attention is needed: amber at 20% remaining or less, and red at 0%. Normal and unavailable readings stay neutral. When multiple filters are available, the badge continues to show the lowest remaining percentage.
 
 ## Model Compatibility
 
