@@ -1070,6 +1070,7 @@ class HaDysonCard extends HTMLElement {
       less: "Weniger",
       show_more_sensors: "Mehr Sensoren anzeigen",
       hide_sensor_details: "Sensor-Details ausblenden",
+      view_sensor_history: "Verlauf für {sensor} anzeigen",
       set_dyson_entity: "Dyson-Entität setzen.",
       entity_not_found_prefix: "Entität",
       entity_not_found_suffix: "wurde nicht gefunden. Stelle sicher, dass hass_dyson installiert ist und die Entität existiert.",
@@ -1132,6 +1133,7 @@ class HaDysonCard extends HTMLElement {
       less: "Less",
       show_more_sensors: "Show more sensors",
       hide_sensor_details: "Hide sensor details",
+      view_sensor_history: "View history for {sensor}",
       set_dyson_entity: "Set a Dyson entity.",
       entity_not_found_prefix: "Entity",
       entity_not_found_suffix: "was not found. Make sure hass_dyson is installed and the entity exists.",
@@ -1194,6 +1196,7 @@ class HaDysonCard extends HTMLElement {
       less: "Moins",
       show_more_sensors: "Afficher plus de capteurs",
       hide_sensor_details: "Masquer le détail des capteurs",
+      view_sensor_history: "Afficher l'historique de {sensor}",
       set_dyson_entity: "Sélectionnez une entité Dyson.",
       entity_not_found_prefix: "L'entité",
       entity_not_found_suffix: "est introuvable. Vérifiez que hass_dyson est installé et que l'entité existe.",
@@ -1272,6 +1275,18 @@ class HaDysonCard extends HTMLElement {
     return { label, value, entityId };
   }
 
+  _historyPath(entityId, hours = 24) {
+    if (!entityId) return "/history";
+    const start = new Date();
+    start.setHours(start.getHours() - hours);
+    const params = new URLSearchParams({
+      entity_id: entityId,
+      back: "1",
+      start_date: start.toISOString(),
+    });
+    return `/history?${params.toString()}`;
+  }
+
   _sensorDetailGroups() {
     const groups = [
       {
@@ -1347,11 +1362,12 @@ class HaDysonCard extends HTMLElement {
     if (!Array.isArray(items) || !items.length) return "";
     return items.map((item) => {
       const tone = this._sensorDetailTone(item.label, item.value);
+      const historyLabel = this._t("view_sensor_history", { sensor: item.label });
       return `
-        <span class="sensor-detail-chip ${tone}" title="${this._escapeHtml(item.entityId)}">
+        <a class="sensor-detail-chip history-link ${tone}" href="${this._escapeHtml(this._historyPath(item.entityId))}" aria-label="${this._escapeHtml(historyLabel)}" title="${this._escapeHtml(historyLabel)}">
           <strong>${this._escapeHtml(item.label)}</strong>
           <span>${this._escapeHtml(item.value)}</span>
-        </span>
+        </a>
       `;
     }).join("");
   }
@@ -1370,11 +1386,12 @@ class HaDysonCard extends HTMLElement {
             <div class="sensor-details-grid ${group.id === "air_quality" ? "compact" : ""}">
               ${group.items.map((item) => {
                 const tone = this._sensorDetailTone(item.label, item.value);
+                const historyLabel = this._t("view_sensor_history", { sensor: item.label });
                 return `
-                <div class="sensor-detail-item ${group.id === "air_quality" ? "compact" : ""} ${tone}" title="${this._escapeHtml(item.entityId)}">
+                <a class="sensor-detail-item history-link ${group.id === "air_quality" ? "compact" : ""} ${tone}" href="${this._escapeHtml(this._historyPath(item.entityId))}" aria-label="${this._escapeHtml(historyLabel)}" title="${this._escapeHtml(historyLabel)}">
                   <span>${this._escapeHtml(item.label)}</span>
                   <strong>${this._escapeHtml(item.value)}</strong>
-                </div>
+                </a>
               `;
               }).join("")}
             </div>
@@ -3526,9 +3543,26 @@ class HaDysonCard extends HTMLElement {
         .sensor-detail-chip {
           grid-template-columns: auto;
           gap: 1px;
-          min-height: 27px;
+          min-height: 36px;
           padding: 5px 9px;
           line-height: 1.05;
+        }
+        .sensor-detail-chip.history-link,
+        .sensor-detail-item.history-link {
+          pointer-events: auto;
+          color: inherit;
+          cursor: pointer;
+          text-decoration: none;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .sensor-detail-chip.history-link:focus-visible,
+        .sensor-detail-item.history-link:focus-visible {
+          outline: 2px solid var(--primary-color, #03a9f4);
+          outline-offset: 2px;
+        }
+        .sensor-detail-chip.history-link:active,
+        .sensor-detail-item.history-link:active {
+          transform: scale(0.98);
         }
         .sensor-detail-chip strong {
           font-size: 0.56rem;

@@ -60,6 +60,7 @@ The goal is to make the Dyson feel like a polished Home Assistant appliance cont
 
 - Compact badges for temperature, humidity, AQI, and filter life
 - Expandable air-quality details for AQI, PM2.5, PM10, VOC, and NO2
+- Tap a sensor detail to open Home Assistant History for that sensor, initially showing the previous 24 hours
 - AQI color coding when status/value can be mapped
 - Same-device entity discovery from the selected Dyson fan entity
 - Home Assistant theme-aware light and dark styling

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Improved
+
+- Sensor detail chips open the Home Assistant History view filtered to the selected sensor and the previous 24 hours.
+
 ## 0.3.2 - 2026-10-16
 
 ### Fixes

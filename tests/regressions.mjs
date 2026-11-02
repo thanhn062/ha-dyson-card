@@ -36,6 +36,7 @@ const context = {
   },
   window: { localStorage, setTimeout, clearTimeout },
   navigator: { language: "fr-FR" },
+  URLSearchParams,
 };
 
 vm.createContext(context);
@@ -51,6 +52,23 @@ assert.equal(card._config.airflow_control_side, "inline");
 assert.equal(card._config.sensor_detail_layout, "inline");
 card.setConfig({ entity: "fan.purificateur_dyson", airflow_control_side: "left" });
 assert.equal(card._config.airflow_control_side, "left");
+
+const historyPath = card._historyPath("sensor.purificateur_dyson_pm2_5");
+const historyUrl = new URL(historyPath, "http://homeassistant.local");
+assert.equal(historyUrl.pathname, "/history", "sensor history links use Home Assistant's native History view");
+assert.equal(historyUrl.searchParams.get("entity_id"), "sensor.purificateur_dyson_pm2_5");
+assert.equal(historyUrl.searchParams.get("back"), "1");
+const historyStart = Date.parse(historyUrl.searchParams.get("start_date"));
+assert.ok(Number.isFinite(historyStart), "history links include a valid start date");
+assert.ok(Date.now() - historyStart >= 23 * 60 * 60 * 1000 && Date.now() - historyStart <= 25 * 60 * 60 * 1000, "history links default to approximately the previous day");
+assert.match(source, /<a class="sensor-detail-chip history-link/);
+assert.match(source, /<a class="sensor-detail-item history-link/);
+assert.match(source, /view_sensor_history: "View history for \{sensor\}"/);
+const renderedHistoryChip = card._renderInlineSensorDetails([
+  { label: "PM2.5", value: "12 µg/m³", entityId: "sensor.purificateur_dyson_pm2_5" },
+]);
+assert.match(renderedHistoryChip, /href="\/history\?entity_id=sensor\.purificateur_dyson_pm2_5&amp;back=1&amp;start_date=/);
+assert.match(renderedHistoryChip, /aria-label="Afficher l&#39;historique de PM2\.5"/);
 
 const registryData = {
   devices: [{ id: "dyson-device-1", name: "Purificateur Dyson" }],
