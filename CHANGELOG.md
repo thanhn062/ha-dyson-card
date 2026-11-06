@@ -4,7 +4,7 @@
 
 ### Improved
 
-- Sensor detail chips open the Home Assistant History view filtered to the selected sensor and the previous 24 hours.
+- When their matching entities are available, temperature, humidity, AQI, filter-life, PM2.5, PM10, VOC, and NO2 badges open the Home Assistant History view for that sensor, initially showing the previous 24 hours. Filter life opens the history for whichever filter currently has the lower remaining percentage.
 
 ## 0.3.2 - 2026-10-16
 

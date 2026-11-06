@@ -69,6 +69,18 @@ const renderedHistoryChip = card._renderInlineSensorDetails([
 ]);
 assert.match(renderedHistoryChip, /href="\/history\?entity_id=sensor\.purificateur_dyson_pm2_5&amp;back=1&amp;start_date=/);
 assert.match(renderedHistoryChip, /aria-label="Afficher l&#39;historique de PM2\.5"/);
+for (const [className, label, entityId] of [
+  ["sensor-temp", "Temperature", "sensor.purificateur_dyson_temperature"],
+  ["sensor-humidity", "Humidity", "sensor.purificateur_dyson_humidity"],
+  ["sensor-aqi good", "AQI", "sensor.purificateur_dyson_aqi"],
+  ["sensor-filter neutral", "Filter life", "sensor.purificateur_dyson_hepa_filter_life"],
+]) {
+  const badge = card._renderSensorHistoryBadge(className, label, entityId, "<strong>value</strong>");
+  assert.match(badge, /<a class="[^"]*history-link"/);
+  assert.match(badge, new RegExp(`href="/history\\?entity_id=${entityId.replaceAll(".", "\\.")}&amp;back=1&amp;start_date=`));
+  assert.match(badge, new RegExp(`aria-label="Afficher l&#39;historique de ${label}"`));
+}
+assert.match(card._renderSensorHistoryBadge("sensor-temp", "Temperature", "", "—"), /^<span class="sensor-temp">/);
 
 const registryData = {
   devices: [{ id: "dyson-device-1", name: "Purificateur Dyson" }],
@@ -90,6 +102,11 @@ const registryData = {
 };
 
 const derived = card._deriveFromRegistry(registryData);
+card._derived = derived;
+card._hass = { states: {
+  "sensor.purificateur_dyson_filtre_hepa": { state: "35" },
+  "sensor.purificateur_dyson_filtre_carbone": { state: "80" },
+} };
 assert.equal(derived.deviceId, "dyson-device-1");
 assert.equal(derived.temperatureEntity, "sensor.purificateur_dyson_temperature");
 assert.equal(derived.humidityEntity, "sensor.purificateur_dyson_humidite");
@@ -104,6 +121,7 @@ assert.equal(derived.oscillationCenterEntity, "number.purificateur_dyson_angle_c
 assert.equal(derived.oscillationSpanEntity, "number.purificateur_dyson_angle_oscillation");
 assert.equal(derived.sleepTimerEntity, "number.purificateur_dyson_minuterie");
 assert.notEqual(derived.oscillationSpanEntity, derived.oscillationLowEntity);
+assert.equal(card._filterHistoryEntity(), "sensor.purificateur_dyson_filtre_hepa", "filter badge history follows the filter with the lowest remaining life");
 
 assert.match(source, /const hideEmptyData = hideEmptySensors;/);
 assert.doesNotMatch(source, /const hideEmptyData = hideUnsupported \|\| hideEmptySensors;/);
