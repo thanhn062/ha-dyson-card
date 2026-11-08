@@ -64,15 +64,19 @@ assert.ok(Date.now() - historyStart >= 23 * 60 * 60 * 1000 && Date.now() - histo
 assert.match(source, /<a class="sensor-detail-chip history-link/);
 assert.match(source, /<a class="sensor-detail-item history-link/);
 assert.match(source, /view_sensor_history: "View history for \{sensor\}"/);
+assert.doesNotMatch(source, /sensor-aqi|showAqiBadge/, "AQI should not have a duplicate primary icon badge");
+assert.match(source, /_sensorDetailItem\("AQI", \["aqi", "air_quality", "air quality"\]\)/, "AQI remains available as a labeled air-quality detail");
 const renderedHistoryChip = card._renderInlineSensorDetails([
   { label: "PM2.5", value: "12 µg/m³", entityId: "sensor.purificateur_dyson_pm2_5" },
+  { label: "AQI", value: "Good", entityId: "sensor.purificateur_dyson_aqi" },
 ]);
 assert.match(renderedHistoryChip, /href="\/history\?entity_id=sensor\.purificateur_dyson_pm2_5&amp;back=1&amp;start_date=/);
 assert.match(renderedHistoryChip, /aria-label="Afficher l&#39;historique de PM2\.5"/);
+assert.match(renderedHistoryChip, /<strong>AQI<\/strong>/, "AQI remains labeled in the sensor details");
+assert.match(renderedHistoryChip, /href="\/history\?entity_id=sensor\.purificateur_dyson_aqi&amp;back=1&amp;start_date=/, "the AQI detail retains its history link");
 for (const [className, label, entityId] of [
   ["sensor-temp", "Temperature", "sensor.purificateur_dyson_temperature"],
   ["sensor-humidity", "Humidity", "sensor.purificateur_dyson_humidity"],
-  ["sensor-aqi good", "AQI", "sensor.purificateur_dyson_aqi"],
   ["sensor-filter neutral", "Filter life", "sensor.purificateur_dyson_hepa_filter_life"],
 ]) {
   const badge = card._renderSensorHistoryBadge(className, label, entityId, "<strong>value</strong>");

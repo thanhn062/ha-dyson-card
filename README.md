@@ -238,16 +238,15 @@ See Home Assistant's official [script](https://www.home-assistant.io/integration
 
 ## Sensors
 
-The default badge row shows the values most useful at a glance:
+The primary badge row shows the values most useful at a glance:
 
 | Badge | Meaning |
 | --- | --- |
 | Temperature | Ambient temperature reported by the Dyson device. |
 | Humidity | Ambient relative humidity. |
-| AQI | Air Quality Index or category exposed by the integration. |
 | Filter life | Lowest remaining HEPA/carbon percentage. Icon: amber at ≤20%, red at 0%; normal and unavailable readings stay neutral. |
 
-The `More` section expands air-quality details when matching sensors exist:
+Air-quality details can show AQI alongside the other matching sensors:
 
 | Detail | Meaning |
 | --- | --- |
