@@ -2812,9 +2812,6 @@ class HaDysonCard extends HTMLElement {
     const tempUnit = climateAttributes.temperature_unit || this._unit(this._temperatureEntity(), "\u00b0");
     const temp = this._stateValue(this._temperatureEntity(), "");
     const humidity = this._stateValue(this._humidityEntity(), "");
-    const aqiItem = this._sensorDetailItem("AQI", ["aqi", "air_quality", "air quality"]);
-    const aqi = aqiItem?.value || "";
-    const aqiTone = aqi ? this._qualityTone(this._qualityLabel(aqi)) : "neutral";
     const speedPercent = this._currentSpeed(attributes);
     const filterPercent = this._filterPercent();
     const filterTone = filterPercent === null ? "neutral"
@@ -2859,16 +2856,14 @@ class HaDysonCard extends HTMLElement {
     const hideEmptyData = hideEmptySensors;
     const hasTempValue = this._hasMeaningfulValue(temp);
     const hasHumidityValue = this._hasMeaningfulValue(humidity);
-    const hasAqiValue = this._hasMeaningfulValue(aqi);
     const showTempBadge = hideEmptyData ? hasTempValue : true;
     const showHumidityBadge = hideEmptyData ? hasHumidityValue : true;
-    const showAqiBadge = hideEmptyData ? hasAqiValue : true;
     const showFilterBadge = hideEmptyData ? filterPercent !== null : true;
     const sensorDetailItems = sensorDetailGroups
       .flatMap((group) => Array.isArray(group.items) ? group.items : [])
       .filter((item) => item && this._hasMeaningfulValue(item.value));
     const inlineSensorDetails = sensorDetailLayout === "inline" ? sensorDetailItems : [];
-    const primarySensorBadgeCount = (showTempBadge ? 1 : 0) + (showHumidityBadge ? 1 : 0) + (showAqiBadge ? 1 : 0) + (showFilterBadge ? 1 : 0);
+    const primarySensorBadgeCount = (showTempBadge ? 1 : 0) + (showHumidityBadge ? 1 : 0) + (showFilterBadge ? 1 : 0);
     const sensorDetailItemCount = sensorDetailItems.length;
     const totalSensorItemCount = primarySensorBadgeCount + sensorDetailItemCount;
     const moreButtonThreshold = this._clamp(Math.round(Number(this._config.sensor_more_button_threshold || 4)), 1, 20);
@@ -3529,7 +3524,6 @@ class HaDysonCard extends HTMLElement {
         }
         .sensor-temp,
         .sensor-humidity,
-        .sensor-aqi,
         .sensor-filter,
         .sensor-detail-chip {
           display: inline-grid;
@@ -3594,21 +3588,6 @@ class HaDysonCard extends HTMLElement {
           font-weight: 800;
           color: var(--primary-text-color);
         }
-        .sensor-aqi.good {
-          border-color: color-mix(in srgb, #22c55e 46%, transparent);
-          background: color-mix(in srgb, #22c55e 18%, var(--dyson-raised-bg));
-          color: var(--primary-text-color);
-        }
-        .sensor-aqi.fair {
-          border-color: color-mix(in srgb, #f59e0b 50%, transparent);
-          background: color-mix(in srgb, #f59e0b 18%, var(--dyson-raised-bg));
-          color: var(--primary-text-color);
-        }
-        .sensor-aqi.poor {
-          border-color: color-mix(in srgb, #ef4444 52%, transparent);
-          background: color-mix(in srgb, #ef4444 20%, var(--dyson-raised-bg));
-          color: var(--primary-text-color);
-        }
         .sensor-detail-chip.good {
           border-color: color-mix(in srgb, #22c55e 46%, transparent);
           background: color-mix(in srgb, #22c55e 18%, var(--dyson-raised-bg));
@@ -3623,7 +3602,6 @@ class HaDysonCard extends HTMLElement {
         }
         .sensor-temp ha-icon,
         .sensor-humidity ha-icon,
-        .sensor-aqi ha-icon,
         .sensor-filter ha-icon {
           justify-self: center;
         }
@@ -4373,7 +4351,6 @@ class HaDysonCard extends HTMLElement {
               <div class="wheel-sensor-strip sensor-layout-${sensorDetailLayout} ${this._sensorDetailsOpen ? "expanded" : ""}">
                 ${showTempBadge ? this._renderSensorHistoryBadge("sensor-temp", "Temperature", this._temperatureEntity(), `<ha-icon icon="mdi:thermometer"></ha-icon>${this._escapeHtml(hasTempValue ? temp : "—")}${hasTempValue ? this._escapeHtml(this._unit(this._temperatureEntity(), "\u00b0")) : ""}`) : ""}
                 ${showHumidityBadge ? this._renderSensorHistoryBadge("sensor-humidity", "Humidity", this._humidityEntity(), `<ha-icon icon="mdi:water-percent"></ha-icon>${this._escapeHtml(hasHumidityValue ? humidity : "—")}${hasHumidityValue ? this._escapeHtml(this._unit(this._humidityEntity(), "%")) : ""}`) : ""}
-                ${showAqiBadge ? this._renderSensorHistoryBadge(`sensor-aqi ${aqiTone}`, "AQI", aqiItem?.entityId || "", `<ha-icon icon="mdi:gauge"></ha-icon>${this._escapeHtml(hasAqiValue ? aqi : "—")}`) : ""}
                 ${showFilterBadge ? this._renderSensorHistoryBadge(`sensor-filter ${filterTone}`, "Filter life", this._filterHistoryEntity(), `<ha-icon icon="mdi:air-filter"></ha-icon>${filterPercent === null ? "—" : `${filterPercent}%`}`) : ""}
                 ${sensorDetailLayout === "inline" ? this._renderInlineSensorDetails(inlineSensorDetails) : ""}
                 ${showSensorMoreButton ? `

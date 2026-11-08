@@ -1,10 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.3.3 - 2026-11-08
 
 ### Improved
 
-- When their matching entities are available, temperature, humidity, AQI, filter-life, PM2.5, PM10, VOC, and NO2 badges open the Home Assistant History view for that sensor, initially showing the previous 24 hours. Filter life opens the history for whichever filter currently has the lower remaining percentage.
+- Sensor badges and air-quality detail chips open the Home Assistant History view for their sensor, initially showing the previous 24 hours. Filter life opens the history for whichever filter currently has the lower remaining percentage.
+- Remove the redundant icon-only AQI badge from the primary row; keep AQI available in the labeled air-quality details.
 
 ## 0.3.2 - 2026-10-16
 
