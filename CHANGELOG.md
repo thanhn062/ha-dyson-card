@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.4 - 2026-11-18
+
+### Fixed
+
+- Keep the card's height steady during dashboard updates so tapping controls does not jump the page toward the top on iOS.
+
 ## 0.3.3 - 2026-11-08
 
 ### Improved

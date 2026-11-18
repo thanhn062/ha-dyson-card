@@ -2778,6 +2778,14 @@ class HaDysonCard extends HTMLElement {
     }
     this._renderPendingAfterDrag = false;
 
+    // Keep the card's height while the new ha-card renders its slot.
+    // Otherwise WebKit clamps the dashboard scroll position during the swap.
+    const lockedHeight = this.offsetHeight;
+    if (lockedHeight) {
+      this.style.minHeight = `${lockedHeight}px`;
+      requestAnimationFrame(() => { this.style.minHeight = ""; });
+    }
+
     const entityId = this._config.entity;
     const fan = entityId ? this._hass?.states?.[entityId] : null;
 
@@ -2885,7 +2893,7 @@ class HaDysonCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         :host {
-          display: block;
+          display: flow-root;
         }
         *,
         *::before,

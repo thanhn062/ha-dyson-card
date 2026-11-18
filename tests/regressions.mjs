@@ -5,6 +5,7 @@ import vm from "node:vm";
 const source = fs.readFileSync(new URL("../ha-dyson-card.js", import.meta.url), "utf8");
 const registry = new Map();
 const localValues = new Map();
+const animationFrames = [];
 const localStorage = {
   getItem(key) {
     return localValues.has(key) ? localValues.get(key) : null;
@@ -36,6 +37,9 @@ const context = {
   },
   window: { localStorage, setTimeout, clearTimeout },
   navigator: { language: "fr-FR" },
+  requestAnimationFrame(callback) {
+    animationFrames.push(callback);
+  },
   URLSearchParams,
 };
 
@@ -44,6 +48,23 @@ vm.runInContext(source, context, { filename: "ha-dyson-card.js" });
 
 const Card = context.customElements.get("ha-dyson-card");
 assert.equal(typeof Card, "function", "card custom element should be registered");
+
+const scrollCard = new Card();
+scrollCard.shadowRoot = {};
+scrollCard._config = {};
+scrollCard.offsetHeight = 607;
+scrollCard.style = { minHeight: "" };
+let heightDuringSwap;
+Object.defineProperty(scrollCard.shadowRoot, "innerHTML", {
+  set() { heightDuringSwap = scrollCard.style.minHeight; },
+});
+scrollCard._render();
+assert.equal(heightDuringSwap, "607px", "card height stays locked across the DOM swap");
+assert.equal(scrollCard.style.minHeight, "607px");
+assert.equal(animationFrames.length, 1);
+animationFrames.shift()();
+assert.equal(scrollCard.style.minHeight, "", "height lock is released on the next frame");
+assert.match(source, /:host\s*\{\s*display:\s*flow-root;/, "the host contains the card's bottom margin");
 
 const card = new Card();
 card._config = { entity: "fan.purificateur_dyson" };
